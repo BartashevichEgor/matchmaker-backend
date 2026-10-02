@@ -72,12 +72,12 @@
 
 ## Layout
 
-### AppLayout header hardcodes logo link to /feed
+### AppLayout sidebar hardcodes brand link to /feed
 
 **Статус:** Minor inconsistency
 
 **Проблема:**
-Логотип в шапке ведёт на `/feed`, но это не конфигурируется.
+Бренд в sidebar ведёт на `/feed`, но это не конфигурируется.
 
 **План:**
 Можно сделать конфигурируемым через пропсы или константы, если понадобится изменить.

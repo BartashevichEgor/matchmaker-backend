@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -48,21 +48,41 @@ describe('AppLayout', () => {
     );
   }
 
-  it('renders header with logo and navigation when user is authenticated', async () => {
+  it('renders the sidebar with logo and navigation when user is authenticated', async () => {
     renderAppLayout(<div data-testid="child-content">Child content</div>);
 
-    await screen.findByText('Matchmaker');
-    expect(screen.getByRole('link', { name: 'Feed' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Matches' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Matchmaker' })).toBeInTheDocument();
+    const sidebarNavigation = screen.getByRole('navigation', { name: 'Основная навигация' });
+    expect(sidebarNavigation).toBeInTheDocument();
+    expect(within(sidebarNavigation).getByRole('link', { name: 'Feed' })).toBeInTheDocument();
+    expect(within(sidebarNavigation).getByRole('link', { name: 'Projects' })).toBeInTheDocument();
+    expect(within(sidebarNavigation).getByRole('link', { name: 'Profile' })).toBeInTheDocument();
+    expect(within(sidebarNavigation).getByRole('link', { name: 'Matches' })).toBeInTheDocument();
     // Chat is not in navigation — need real matchId for the link
   });
 
   it('renders logout button when user is authenticated', async () => {
     renderAppLayout(<div data-testid="child-content">Child content</div>);
 
-    expect(await screen.findByRole('button', { name: 'Exit' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Выйти' })).toBeInTheDocument();
+  });
+
+  it('opens and closes the mobile menu', async () => {
+    const user = userEvent.setup();
+    renderAppLayout(<div data-testid="child-content">Child content</div>);
+
+    const mobileNavigation = screen.getByRole('navigation', { name: 'Мобильная навигация' });
+    const menuButton = within(mobileNavigation).getByRole('button', { name: 'Открыть меню' });
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(menuButton);
+
+    expect(within(mobileNavigation).getByRole('button', { name: 'Закрыть меню' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('complementary', { name: 'Боковая навигация' })).toHaveClass('app-sidebar--open');
+
+    await user.click(screen.getByRole('button', { name: 'Закрыть боковое меню' }));
+
+    expect(within(mobileNavigation).getByRole('button', { name: 'Открыть меню' })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('renders Outlet for children when user is authenticated', async () => {
@@ -75,7 +95,7 @@ describe('AppLayout', () => {
     const user = userEvent.setup();
     renderAppLayout(<div data-testid="child-content">Child content</div>);
 
-    const logoutButton = await screen.findByRole('button', { name: 'Exit' });
+    const logoutButton = await screen.findByRole('button', { name: 'Выйти' });
     await user.click(logoutButton);
 
     const { mockAuthService } = await import('../../shared/lib/auth/mock-auth-service');
@@ -89,7 +109,7 @@ describe('AppLayout', () => {
 
     renderAppLayout(<div data-testid="child-content">Child content</div>);
 
-    await user.click(await screen.findByRole('button', { name: 'Exit' }));
+    await user.click(await screen.findByRole('button', { name: 'Выйти' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Не удалось выйти/i);
   });
@@ -117,7 +137,7 @@ describe('AppLayout', () => {
       </MemoryRouter>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Exit' }));
+    await user.click(await screen.findByRole('button', { name: 'Выйти' }));
 
     await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
   });

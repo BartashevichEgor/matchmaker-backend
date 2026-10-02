@@ -56,7 +56,7 @@ describe('AppRouter', () => {
     );
 
     await waitFor(() => expect(screen.getByRole('heading', { name: /Лента/i })).toBeInTheDocument());
-    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Matchmaker' })).toHaveAttribute('href', '/feed');
     expect(screen.getByText(/В разработке/i)).toBeInTheDocument();
   });
@@ -72,7 +72,7 @@ describe('AppRouter', () => {
     );
 
     await waitFor(() => expect(screen.getByRole('heading', { name: /Чат/i })).toBeInTheDocument());
-    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Matchmaker' })).toHaveAttribute('href', '/feed');
     expect(screen.getByText(/matchId: abc/i)).toBeInTheDocument();
   });
@@ -92,7 +92,7 @@ describe('AppRouter', () => {
     );
 
     await waitFor(() => expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument());
-    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Matchmaker' })).toHaveAttribute('href', '/feed');
   });
 
