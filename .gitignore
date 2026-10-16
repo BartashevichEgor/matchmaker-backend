@@ -221,3 +221,10 @@ __marimo__/
 !.env.example
 .idea/
 .vscode/
+
+# Local Matchmaker data and messages
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.local/

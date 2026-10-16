@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Matchmaker — найди свою команду</title>
+  <link rel="icon" href="/assets/favicon.svg"><link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+<header><a class="brand" href="/">Matchmaker</a><nav><a href="/docs">API / Swagger ↗</a><span id="server-status">Проверяем сервер…</span></nav></header>
+<main>
+  <aside class="intro">
+    <p class="eyebrow">КОМАНДА НАЧИНАЕТСЯ С МАТЧА</p>
+    <h1>Matchmaker</h1>
+    <p>Найди людей для идеи, проекта или хакатона. Покажи навыки, выбери команду — и начните вместе.</p>
+    <div class="orbit" aria-hidden="true"><span class="pill p1">Python</span><span class="pill p2">Design</span><span class="center-mark">m↗</span><span class="pill p3">Kotlin</span><span class="pill p4">React</span></div>
+    <footer>УЧЕБНЫЙ ПРОЕКТ · WEB & iOS</footer>
+  </aside>
+  <section class="workspace">
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div id="auth">
+      <div class="tabs" role="group" aria-label="Действие"><button type="button" data-tab="login" class="selected">Вход</button><button type="button" data-tab="register">Регистрация</button></div>
+      <form id="login-form" class="auth-form">
+        <h2>Вход</h2>
+        <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="Твой пароль"></label>
+        <button class="primary" type="submit">Войти <span>→</span></button>
+        <button type="button" class="text-button" data-tab="forgot">Забыли пароль?</button>
+        <button type="button" class="text-button" data-tab="verify">Подтвердить email</button>
+        <p class="auth-switch">Нет аккаунта? <button type="button" class="inline-button" data-tab="register">Зарегистрироваться</button></p>
+      </form>
+      <form id="register-form" class="auth-form" hidden>
+        <h2>Регистрация</h2>
+        <label>Имя пользователя<input name="username" autocomplete="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._-]{3,30}" placeholder="username"></label>
+        <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+        <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required placeholder="Не менее 10 символов"></label>
+        <label>Повтори пароль<input name="password_confirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+        <button class="primary" type="submit">Зарегистрироваться</button>
+        <p class="auth-switch">Уже есть аккаунт? <button type="button" class="inline-button" data-tab="login">Войти</button></p>
+      </form>
+      <form id="verify-form" class="auth-form" hidden>
+        <h2>Подтверди email.</h2><p class="muted">Введи шестизначный код из письма.</p>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <label>Код<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+        <button class="primary" type="submit">Подтвердить →</button><button type="button" id="resend" class="text-button">Отправить код ещё раз</button>
+      </form>
+      <form id="forgot-form" class="auth-form" hidden>
+        <h2>Восстановить доступ.</h2><p class="muted">Отправим код на почту, если аккаунт существует.</p>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <button class="primary" type="submit">Получить код →</button>
+      </form>
+      <form id="reset-form" class="auth-form" hidden>
+        <h2>Новый пароль.</h2>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>Код<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
+        <label>Новый пароль<input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+        <label>Повтори пароль<input name="password_confirm" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+        <button class="primary" type="submit">Сохранить пароль →</button>
+      </form>
+      <p id="local-hint" class="local-hint" hidden>Локальная демонстрация: письма сохраняются в <code>core-api/.local/outbox</code>. Открой последнее письмо в VS Code и скопируй код.</p>
+    </div>
+    <div id="account" hidden>
+      <div class="account-bar"><span id="account-email"></span><button id="logout" class="text-button">Выйти</button></div>
+      <h2>Твоя точка старта.</h2><p class="muted">Заполни профиль и расскажи, что умеешь.</p>
+      <form id="profile-form">
+        <div class="row"><label>Имя<input name="first_name" maxlength="80"></label><label>Фамилия<input name="last_name" maxlength="80"></label></div>
+        <label>О себе<textarea name="bio" maxlength="3000" rows="3"></textarea></label>
+        <label>GitHub<input name="github_url" type="url" placeholder="https://github.com/username"></label>
+        <label>Роль<select name="role_id" id="roles"><option value="">Выбери роль</option></select></label>
+        <button class="primary" type="submit">Сохранить профиль →</button>
+      </form>
+      <h3>Навыки</h3><p class="muted">Выбери уровень от 1 до 5. «Нет» убирает навык.</p>
+      <form id="skills-form"><div id="skill-fields"></div><button class="primary" type="submit">Сохранить навыки →</button></form>
+      <div class="recommend-title"><h3>Проекты для тебя</h3><button id="reload-projects" class="text-button">Обновить</button></div>
+      <div id="projects"></div><p class="muted">Создание проектов, подбор кандидатов и совпадения доступны в <a href="/docs">Swagger</a>.</p>
+    </div>
+  </section>
+</main>
+</body></html>

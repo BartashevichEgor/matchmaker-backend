@@ -1,0 +1,9 @@
+.env
+.env.*
+.local
+*.db
+__pycache__
+tests
+.pytest_cache
+.ruff_cache
+docs

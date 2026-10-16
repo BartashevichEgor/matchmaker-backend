@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: matchmaker
+      POSTGRES_USER: matchmaker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in root .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U matchmaker -d matchmaker']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '127.0.0.1:8025:8025'
+    restart: unless-stopped
+  api:
+    build: ./core-api
+    environment:
+      ENVIRONMENT: local
+      DATABASE_URL: postgresql+psycopg://matchmaker:${POSTGRES_PASSWORD}@db:5432/matchmaker
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in root .env}
+      REDIS_URL: redis://redis:6379/0
+      MAIL_MODE: smtp
+      MAIL_SERVER: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM: noreply@matchmaker.local
+    ports:
+      - '127.0.0.1:8000:8000'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  redis_data:
