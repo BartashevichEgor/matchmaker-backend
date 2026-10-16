@@ -25,6 +25,10 @@ app = FastAPI(
     redoc_url=None,
     description="Student project matching. Register → verify email → login → profile → projects → match.",
 )
+# swagger-ui 4.15, bundled locally for an offline demo, reads OpenAPI 3.0.x.
+# FastAPI 0.142 always initialises this setting as 3.1.0, so override the
+# generated-document version explicitly rather than relying on its constructor.
+app.openapi_version = "3.0.3"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
