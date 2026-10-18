@@ -5,22 +5,19 @@ import { useAuth } from '../../app/providers/AuthProvider';
 type NavItem = {
   path: string;
   label: string;
+  displayLabel: string;
   icon: SidebarIconName;
   exact?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { path: '/feed', label: 'Feed', icon: 'feed', exact: true },
-  { path: '/projects', label: 'Projects', icon: 'projects', exact: true },
-  { path: '/profile', label: 'Profile', icon: 'profile', exact: true },
-  { path: '/matches', label: 'Matches', icon: 'matches', exact: true },
+  { path: '/feed', label: 'Feed', displayLabel: 'Каталог', icon: 'feed', exact: true },
+  { path: '/matches', label: 'Matches', displayLabel: 'Мэтчи', icon: 'matches', exact: true },
+  { path: '/profile', label: 'Profile', displayLabel: 'Профиль', icon: 'profile' },
 ];
 
 const MOBILE_NAV_ITEMS: NavItem[] = [
-  { path: '/feed', label: 'Feed', icon: 'feed', exact: true },
-  { path: '/profile', label: 'Profile', icon: 'profile', exact: true },
-  { path: '/matches', label: 'Matches', icon: 'matches', exact: true },
-  { path: '/projects', label: 'Projects', icon: 'projects', exact: true },
+  ...NAV_ITEMS,
 ];
 
 type SidebarIconName = 'feed' | 'projects' | 'profile' | 'matches' | 'logout' | 'menu';
@@ -132,9 +129,18 @@ export function AppLayout() {
         aria-label="Боковая навигация"
       >
         <Link to="/feed" className="app-sidebar__brand" aria-label="Matchmaker" onClick={closeMobileMenu}>
-          <span className="app-sidebar__brand-line">MATCH</span>
-          <span className="app-sidebar__brand-line">MAKER</span>
+          <span className="app-sidebar__brand-mark" aria-hidden="true">
+            <img src="/assets/matchmaker-logo.png" alt="" />
+          </span>
+          <span className="app-sidebar__brand-name">Matchmaker</span>
         </Link>
+
+        <div className="app-sidebar__brand-story" aria-hidden="true">
+          <img src="/assets/matchmaker-logo.png" alt="" />
+          <strong>Matchmaker</strong>
+          <span>Команда начинается с мэтча</span>
+        </div>
+        <p className="app-sidebar__footer-copy">Люди, навыки и проекты<br />в одном месте</p>
 
         <nav className="app-sidebar__nav" aria-label="Основная навигация">
           <ul className="app-sidebar__nav-list">
@@ -144,11 +150,12 @@ export function AppLayout() {
                   to={item.path}
                   className={`app-sidebar__link${isActive(location, item.path, item.exact) ? ' app-sidebar__link--active' : ''}`}
                   title={item.label}
+                  aria-label={item.label}
                   aria-current={isActive(location, item.path, item.exact) ? 'page' : undefined}
                   onClick={closeMobileMenu}
                 >
                   <SidebarIcon name={item.icon} />
-                  <span className="app-sidebar__label">{item.label}</span>
+                  <span className="app-sidebar__label">{item.displayLabel}</span>
                 </Link>
               </li>
             ))}
@@ -197,12 +204,29 @@ export function AppLayout() {
       </nav>
 
       <main className="app-content">
+        <header className="app-header">
+          <nav className="app-header__nav" aria-label="Навигация по разделам">
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`app-header__link${isActive(location, item.path, item.exact) ? ' app-header__link--active' : ''}`}
+                aria-label={item.label}
+                aria-current={isActive(location, item.path, item.exact) ? 'page' : undefined}
+              >
+                {item.displayLabel}
+              </Link>
+            ))}
+          </nav>
+        </header>
         {logoutError || authError ? (
-          <p className="auth-form__form-error" role="alert">
+          <p className="auth-form__form-error app-content__error" role="alert">
             {logoutError ?? authError}
           </p>
         ) : null}
-        <Outlet />
+        <div className="app-page">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

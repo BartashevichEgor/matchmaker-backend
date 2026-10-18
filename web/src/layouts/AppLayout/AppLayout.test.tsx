@@ -55,7 +55,6 @@ describe('AppLayout', () => {
     const sidebarNavigation = screen.getByRole('navigation', { name: 'Основная навигация' });
     expect(sidebarNavigation).toBeInTheDocument();
     expect(within(sidebarNavigation).getByRole('link', { name: 'Feed' })).toBeInTheDocument();
-    expect(within(sidebarNavigation).getByRole('link', { name: 'Projects' })).toBeInTheDocument();
     expect(within(sidebarNavigation).getByRole('link', { name: 'Profile' })).toBeInTheDocument();
     expect(within(sidebarNavigation).getByRole('link', { name: 'Matches' })).toBeInTheDocument();
     // Chat is not in navigation — need real matchId for the link
