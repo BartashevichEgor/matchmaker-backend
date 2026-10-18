@@ -5,6 +5,9 @@ import { HomePage } from '../pages/home/HomePage';
 import { LoginPage } from '../pages/login/LoginPage';
 import { RegisterPage } from '../pages/register/RegisterPage';
 import { NotFoundPage } from '../pages/not-found/NotFoundPage';
+import { CatalogPage } from '../pages/catalog/CatalogPage';
+import { ProfilePage } from '../pages/profile/ProfilePage';
+import { CreateProfilePage } from '../pages/profile/CreateProfilePage';
 import { SectionPlaceholder } from '../shared/ui/SectionPlaceholder';
 
 export function AppRouter() {
@@ -24,10 +27,7 @@ export function AppRouter() {
         }
       >
         <Route path="/feed">
-          <Route
-            index
-            element={<SectionPlaceholder title="Лента" description="Здесь появится главная лента подбора." />}
-          />
+          <Route index element={<CatalogPage />} />
         </Route>
 
         <Route path="/projects">
@@ -38,10 +38,8 @@ export function AppRouter() {
         </Route>
 
         <Route path="/profile">
-          <Route
-            index
-            element={<SectionPlaceholder title="Профиль" description="Здесь будет профиль пользователя." />}
-          />
+          <Route index element={<ProfilePage />} />
+          <Route path="create" element={<CreateProfilePage />} />
         </Route>
 
         <Route path="/matches">

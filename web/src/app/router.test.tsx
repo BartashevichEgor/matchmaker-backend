@@ -45,7 +45,7 @@ describe('AppRouter', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: /Создать аккаунт/i })).toBeInTheDocument());
   });
 
-  it('renders the feed placeholder on /feed for an authenticated user', async () => {
+  it('renders the catalog on /feed for an authenticated user', async () => {
     setAuthenticatedUser();
     render(
       <MemoryRouter initialEntries={['/feed']}>
@@ -58,7 +58,7 @@ describe('AppRouter', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: /Лента/i })).toBeInTheDocument());
     expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Matchmaker' })).toHaveAttribute('href', '/feed');
-    expect(screen.getByText(/В разработке/i)).toBeInTheDocument();
+    expect(screen.getByText(/Подходят тебе/i)).toBeInTheDocument();
   });
 
   it('renders the chat placeholder with matchId on /chat/:matchId for an authenticated user', async () => {
