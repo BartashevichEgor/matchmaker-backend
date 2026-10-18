@@ -1,23 +1,19 @@
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { AuthForm } from '../../features/auth/ui/AuthForm';
-import { resolveRedirectTarget, type RedirectState } from '../../features/auth/lib/resolve-redirect-target';
 import { AuthPageLayout } from '../../layouts/AuthPageLayout/AuthPageLayout';
 
 export function LoginPage() {
   const { user, isInitialized, authError, authErrorCode, clearAuthError, login } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
 
   if (isInitialized && user) {
     return <Navigate to="/feed" replace />;
   }
 
-  const redirectTarget = resolveRedirectTarget(location.state as RedirectState);
-
   const handleSubmit = async (input: { email: string; password: string }) => {
     await login(input);
-    navigate(redirectTarget, { replace: true });
+    navigate('/feed', { replace: true });
   };
 
   return (

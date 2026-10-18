@@ -8,29 +8,42 @@ beforeEach(() => {
 
 describe('mockAuthService', () => {
   it('registers a user and stores the session', async () => {
-    const user = await mockAuthService.register({ email: 'Test@Example.com', password: 'password123' });
+    const user = await mockAuthService.register({
+      username: 'Test User',
+      email: 'Test@Example.com',
+      password: 'password123',
+    });
 
+    expect(user.username).toBe('Test User');
     expect(user.email).toBe('test@example.com');
     expect(user.id).toBeTruthy();
     expect(await mockAuthService.getCurrentUser()).toEqual(user);
   });
 
   it('rejects duplicate emails regardless of case', async () => {
-    await mockAuthService.register({ email: 'test@example.com', password: 'password123' });
+    await mockAuthService.register({ username: 'Test User', email: 'test@example.com', password: 'password123' });
 
-    await expect(mockAuthService.register({ email: ' TEST@example.com ', password: 'password123' })).rejects.toMatchObject({
+    await expect(mockAuthService.register({
+      username: 'Another User',
+      email: ' TEST@example.com ',
+      password: 'password123',
+    })).rejects.toMatchObject({
       code: 'duplicate_email',
     });
   });
 
   it('validates credentials at the service boundary', async () => {
-    await expect(mockAuthService.register({ email: 'invalid-email', password: 'short' })).rejects.toMatchObject({
+    await expect(mockAuthService.register({
+      username: 'Test User',
+      email: 'invalid-email',
+      password: 'short',
+    })).rejects.toMatchObject({
       code: 'validation_error',
     });
   });
 
   it('logs in and logs out a user', async () => {
-    await mockAuthService.register({ email: 'test@example.com', password: 'password123' });
+    await mockAuthService.register({ username: 'Test User', email: 'test@example.com', password: 'password123' });
     await mockAuthService.logout();
 
     const loggedInUser = await mockAuthService.login({ email: ' test@example.com ', password: 'password123' });

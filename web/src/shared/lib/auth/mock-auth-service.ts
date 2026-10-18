@@ -1,7 +1,14 @@
-import { AuthError, type AuthService, type CredentialsInput, type User } from './auth-types';
-import { credentialsSchema, normalizeEmail } from './auth-schemas';
+import { AuthError, type AuthService, type CredentialsInput, type RegisterInput, type User } from './auth-types';
+import { credentialsSchema, normalizeEmail, normalizeUsername, registerInputSchema } from './auth-schemas';
 
 type StoredUser = User & { password: string };
+type StoredUserRecord = {
+  id: string;
+  username?: string;
+  email: string;
+  password: string;
+  createdAt: string;
+};
 type StoredSession = { userId: string };
 
 const USERS_STORAGE_KEY = 'matchmaker:v1:users';
@@ -55,6 +62,22 @@ function writeJson(key: string, value: unknown) {
   runStorageOperation((storage) => storage.setItem(key, JSON.stringify(value)));
 }
 
+function isStoredUserRecord(value: unknown): value is StoredUserRecord {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const record = value as Partial<StoredUserRecord>;
+
+  return (
+    typeof record.id === 'string' &&
+    typeof record.email === 'string' &&
+    typeof record.password === 'string' &&
+    typeof record.createdAt === 'string' &&
+    (record.username === undefined || typeof record.username === 'string')
+  );
+}
+
 function readUsers(): StoredUser[] {
   const rawUsers = readJson<unknown>(USERS_STORAGE_KEY);
 
@@ -62,27 +85,22 @@ function readUsers(): StoredUser[] {
     return [];
   }
 
-  const isValidUsers = Array.isArray(rawUsers) && rawUsers.every((candidate) => {
-    if (typeof candidate !== 'object' || candidate === null) {
-      return false;
-    }
-
-    const record = candidate as Partial<StoredUser>;
-
-    return (
-      typeof record.id === 'string' &&
-      typeof record.email === 'string' &&
-      typeof record.password === 'string' &&
-      typeof record.createdAt === 'string'
-    );
-  });
+  const isValidUsers = Array.isArray(rawUsers) && rawUsers.every(isStoredUserRecord);
 
   if (!isValidUsers) {
     runStorageOperation((storage) => storage.removeItem(USERS_STORAGE_KEY));
     return [];
   }
 
-  return rawUsers;
+  return rawUsers.map((record) => {
+    return {
+      id: record.id,
+      username: record.username?.trim() || record.email.split('@')[0],
+      email: record.email,
+      password: record.password,
+      createdAt: record.createdAt,
+    };
+  });
 }
 
 function writeUsers(users: StoredUser[]) {
@@ -127,6 +145,13 @@ function normalizeCredentials(input: CredentialsInput): CredentialsInput {
   };
 }
 
+function normalizeRegisterInput(input: RegisterInput): RegisterInput {
+  return {
+    ...normalizeCredentials(input),
+    username: normalizeUsername(input.username),
+  };
+}
+
 function validateCredentials(input: CredentialsInput): CredentialsInput {
   const parsed = credentialsSchema.safeParse(normalizeCredentials(input));
 
@@ -137,8 +162,18 @@ function validateCredentials(input: CredentialsInput): CredentialsInput {
   return parsed.data;
 }
 
-function createUserRecord(input: CredentialsInput): StoredUser {
-  const validatedInput = validateCredentials(input);
+function validateRegisterInput(input: RegisterInput): RegisterInput {
+  const parsed = registerInputSchema.safeParse(normalizeRegisterInput(input));
+
+  if (!parsed.success) {
+    throw new AuthError('validation_error', parsed.error.issues[0]?.message ?? 'Некорректные данные');
+  }
+
+  return parsed.data;
+}
+
+function createUserRecord(input: RegisterInput): StoredUser {
+  const validatedInput = validateRegisterInput(input);
   const users = readUsers();
 
   if (users.some((user) => user.email === validatedInput.email)) {
@@ -147,6 +182,7 @@ function createUserRecord(input: CredentialsInput): StoredUser {
 
   const user: StoredUser = {
     id: safeRandomId(),
+    username: validatedInput.username,
     email: validatedInput.email,
     password: validatedInput.password,
     createdAt: new Date().toISOString(),
@@ -172,7 +208,7 @@ function authenticateUser(input: CredentialsInput): StoredUser {
   return matchedUser;
 }
 
-async function register(input: CredentialsInput): Promise<User> {
+async function register(input: RegisterInput): Promise<User> {
   return toPublicUser(createUserRecord(input));
 }
 

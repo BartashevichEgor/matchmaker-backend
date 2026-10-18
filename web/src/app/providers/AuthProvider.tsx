@@ -4,6 +4,7 @@ import {
   type AuthErrorCode,
   type AuthService,
   type CredentialsInput,
+  type RegisterInput,
   type User,
 } from '../../shared/lib/auth/auth-types';
 import { mockAuthService } from '../../shared/lib/auth/mock-auth-service';
@@ -14,7 +15,7 @@ type AuthContextValue = {
   authError: string | null;
   authErrorCode: AuthErrorCode | null;
   login: (input: CredentialsInput) => Promise<User>;
-  register: (input: CredentialsInput) => Promise<User>;
+  register: (input: RegisterInput) => Promise<User>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
 };
@@ -108,7 +109,7 @@ export function AuthProvider({
           throw error;
         }
       },
-      register: async (input: CredentialsInput) => {
+      register: async (input: RegisterInput) => {
         setAuthError(null);
         setAuthErrorCode(null);
 

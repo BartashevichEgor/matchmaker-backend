@@ -20,7 +20,7 @@ describe('auth pages', () => {
     );
 
     expect(await screen.findByRole('region', { name: 'Презентационная панель' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Люди и проекты, которые подходят друг другу/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Matchmaker' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Войти в аккаунт/i })).toBeInTheDocument();
     expect(screen.queryByText('Вход', { selector: '.section-badge' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Зарегистрироваться' })).toHaveAttribute('href', '/register');
@@ -53,15 +53,38 @@ describe('auth pages', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText(/email/i), 'invalid-email');
+    await user.type(screen.getByLabelText(/e-?mail/i), 'invalid-email');
     await user.type(screen.getByLabelText(/^пароль$/i), 'short');
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
-    expect(screen.getByLabelText(/email/i)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(/e-?mail/i)).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText(/^пароль$/i)).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText(/Введите корректный email/i)).toBeInTheDocument();
     expect(screen.getByText(/Пароль должен содержать не менее 8 символов/i)).toBeInTheDocument();
     expect(document.querySelector('.auth-form__alert')).not.toBeInTheDocument();
+  });
+
+  it('toggles password visibility', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const password = screen.getByLabelText(/^пароль$/i);
+    const showPasswordButtons = screen.getAllByRole('button', { name: 'Показать пароль' });
+
+    expect(showPasswordButtons).toHaveLength(2);
+    expect(password).toHaveAttribute('type', 'password');
+
+    await user.click(showPasswordButtons[0]);
+
+    expect(password).toHaveAttribute('type', 'text');
+    expect(screen.getAllByRole('button', { name: 'Скрыть пароль' })).toHaveLength(1);
   });
 
   it('registers a user and redirects to feed', async () => {
@@ -76,7 +99,8 @@ describe('auth pages', () => {
     );
 
     expect(screen.queryByText('Регистрация', { selector: '.section-badge' })).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText(/email/i), 'new@example.com');
+    await user.type(screen.getByLabelText(/имя пользователя/i), 'new-user');
+    await user.type(screen.getByLabelText(/e-?mail/i), 'new@example.com');
     await user.type(screen.getByLabelText(/^пароль$/i), 'password123');
     await user.type(screen.getByLabelText(/подтвердите пароль/i), 'password123');
     await user.click(screen.getByRole('button', { name: /создать аккаунт/i }));
@@ -102,14 +126,14 @@ describe('auth pages', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/e-?mail/i), 'test@example.com');
     await user.type(screen.getByLabelText(/^пароль$/i), 'password123');
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
     await waitFor(() => expect(screen.getByRole('heading', { name: /Лента/i })).toBeInTheDocument());
   });
 
-  it('returns a user to the full protected URL after login', async () => {
+  it('redirects a user to /feed after login', async () => {
     localStorage.setItem(
       'matchmaker:v1:users',
       JSON.stringify([
@@ -134,12 +158,12 @@ describe('auth pages', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/e-?mail/i), 'test@example.com');
     await user.type(screen.getByLabelText(/^пароль$/i), 'password123');
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
-    await waitFor(() => expect(screen.getByText(/matchId: abc/i)).toBeInTheDocument());
-    expect(screen.getByTestId('current-location')).toHaveTextContent('/chat/abc?tab=info#messages');
+    await waitFor(() => expect(screen.getByText(/Подходят тебе/i)).toBeInTheDocument());
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/feed');
   });
 
   it('redirects an authenticated user away from the login page', async () => {
@@ -180,14 +204,14 @@ describe('auth pages', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText(/email/i), 'TEST@example.com');
+    await user.type(screen.getByLabelText(/e-?mail/i), 'TEST@example.com');
     await user.type(screen.getByLabelText(/^пароль$/i), 'wrong-password');
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/Неверный email или пароль/i),
     );
-    expect(screen.getByLabelText(/email/i)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(/e-?mail/i)).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText(/^пароль$/i)).toHaveAttribute('aria-invalid', 'true');
     expect(document.querySelector('.auth-form__alert')).not.toBeInTheDocument();
   });
@@ -210,7 +234,8 @@ describe('auth pages', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText(/email/i), ' TEST@example.com ');
+    await user.type(screen.getByLabelText(/имя пользователя/i), 'existing-user');
+    await user.type(screen.getByLabelText(/e-?mail/i), ' TEST@example.com ');
     await user.type(screen.getByLabelText(/^пароль$/i), 'password123');
     await user.type(screen.getByLabelText(/подтвердите пароль/i), 'password123');
     await user.click(screen.getByRole('button', { name: /создать аккаунт/i }));
@@ -218,7 +243,7 @@ describe('auth pages', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/Пользователь с таким email уже существует/i),
     );
-    expect(screen.getByLabelText(/email/i)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(/e-?mail/i)).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText(/^пароль$/i)).toHaveAttribute('aria-invalid', 'false');
   });
 });

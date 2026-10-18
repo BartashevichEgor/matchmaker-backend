@@ -14,9 +14,8 @@ export function AuthPageLayout({ children }: AuthPageLayoutProps) {
           <span />
         </div>
         <div className="auth-page-layout__visual-content">
-          <p className="auth-page-layout__eyebrow">Matchmaker</p>
-          <h1>Люди и проекты, которые подходят друг другу</h1>
-          <p>Собирайте сильные команды и находите идеи для совместного развития.</p>
+          <h1>Matchmaker</h1>
+          <p>Команда начинается с мэтча</p>
         </div>
       </section>
 

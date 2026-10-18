@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { AuthForm } from '../../features/auth/ui/AuthForm';
 import { AuthPageLayout } from '../../layouts/AuthPageLayout/AuthPageLayout';
+import type { RegisterInput } from '../../shared/lib/auth/auth-types';
 
 export function RegisterPage() {
   const { user, isInitialized, authError, authErrorCode, clearAuthError, register } = useAuth();
@@ -11,7 +12,7 @@ export function RegisterPage() {
     return <Navigate to="/feed" replace />;
   }
 
-  const handleSubmit = async (input: { email: string; password: string }) => {
+  const handleSubmit = async (input: RegisterInput) => {
     await register(input);
     navigate('/feed', { replace: true });
   };

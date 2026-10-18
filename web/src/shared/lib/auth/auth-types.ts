@@ -1,5 +1,6 @@
 export type User = {
   id: string;
+  username: string;
   email: string;
   createdAt: string;
 };
@@ -9,12 +10,16 @@ export type CredentialsInput = {
   password: string;
 };
 
-export type RegisterFormInput = CredentialsInput & {
+export type RegisterInput = CredentialsInput & {
+  username: string;
+};
+
+export type RegisterFormInput = RegisterInput & {
   confirmPassword: string;
 };
 
 export type AuthService = {
-  register(input: CredentialsInput): Promise<User>;
+  register(input: RegisterInput): Promise<User>;
   login(input: CredentialsInput): Promise<User>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;

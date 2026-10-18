@@ -173,6 +173,7 @@ describe('AuthProvider', () => {
 function createUser(email: string): User {
   return {
     id: email,
+    username: email.split('@')[0],
     email,
     createdAt: '2026-01-01T00:00:00.000Z',
   };

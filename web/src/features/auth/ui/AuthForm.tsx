@@ -1,26 +1,37 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { ZodIssue } from 'zod';
-import type { AuthErrorCode, CredentialsInput } from '../../../shared/lib/auth/auth-types';
+import type { AuthErrorCode, CredentialsInput, RegisterInput } from '../../../shared/lib/auth/auth-types';
 import { credentialsSchema, registerFormSchema } from '../../../shared/lib/auth/auth-schemas';
 
 type AuthFormMode = 'login' | 'register';
-type FieldName = 'email' | 'password' | 'confirmPassword';
+type FieldName = 'username' | 'email' | 'password' | 'confirmPassword';
 type FieldErrors = Partial<Record<FieldName, string>>;
 
-type AuthFormProps = {
-  mode: AuthFormMode;
-  title: string;
-  description: string;
-  submitLabel: string;
-  onSubmit: (input: CredentialsInput) => Promise<void>;
-  externalError?: string | null;
-  externalErrorCode?: AuthErrorCode | null;
-  onClearExternalError?: () => void;
-};
+type AuthFormProps =
+  | {
+      mode: 'login';
+      title: string;
+      description: string;
+      submitLabel: string;
+      onSubmit: (input: CredentialsInput) => Promise<void>;
+      externalError?: string | null;
+      externalErrorCode?: AuthErrorCode | null;
+      onClearExternalError?: () => void;
+    }
+  | {
+      mode: 'register';
+      title: string;
+      description: string;
+      submitLabel: string;
+      onSubmit: (input: RegisterInput) => Promise<void>;
+      externalError?: string | null;
+      externalErrorCode?: AuthErrorCode | null;
+      onClearExternalError?: () => void;
+    };
 
 function isFieldName(value: unknown): value is FieldName {
-  return value === 'email' || value === 'password' || value === 'confirmPassword';
+  return value === 'username' || value === 'email' || value === 'password' || value === 'confirmPassword';
 }
 
 function getFieldErrors(issues: readonly ZodIssue[]): FieldErrors {
@@ -54,6 +65,16 @@ function getExternalFieldErrors(
   return {};
 }
 
+function EyeIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M2.5 12s3.4-5 9.5-5 9.5 5 9.5 5-3.4 5-9.5 5-9.5-5-9.5-5Z" />
+      <circle cx="12" cy="12" r="2.5" />
+      {!isOpen ? <path d="m4 4 16 16" /> : null}
+    </svg>
+  );
+}
+
 export function AuthForm({
   mode,
   title,
@@ -64,15 +85,19 @@ export function AuthForm({
   externalErrorCode,
   onClearExternalError,
 }: AuthFormProps) {
+  const usernameId = useId();
   const emailId = useId();
   const passwordId = useId();
   const confirmPasswordId = useId();
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
   const externalFieldErrors = getExternalFieldErrors(externalError, externalErrorCode);
   const visibleFieldErrors = { ...externalFieldErrors, ...fieldErrors };
@@ -85,7 +110,9 @@ export function AuthForm({
   };
 
   const handleFieldChange = (fieldName: FieldName, value: string) => {
-    if (fieldName === 'email') {
+    if (fieldName === 'username') {
+      setUsername(value);
+    } else if (fieldName === 'email') {
       setEmail(value);
     } else if (fieldName === 'password') {
       setPassword(value);
@@ -103,15 +130,29 @@ export function AuthForm({
     setFormError(null);
     clearExternalError();
 
-    const baseInput: CredentialsInput = {
-      email,
-      password,
-    };
+    if (mode === 'register') {
+      const validationResult = registerFormSchema.safeParse({ username, email, password, confirmPassword });
 
-    const validationResult =
-      mode === 'register'
-        ? registerFormSchema.safeParse({ ...baseInput, confirmPassword })
-        : credentialsSchema.safeParse(baseInput);
+      if (!validationResult.success) {
+        setFieldErrors(getFieldErrors(validationResult.error.issues));
+        return;
+      }
+
+      const { confirmPassword: _confirmPassword, ...registerInput } = validationResult.data;
+      setIsSubmitting(true);
+
+      try {
+        await onSubmit(registerInput);
+      } catch {
+        // AuthProvider exposes the service error through externalError.
+      } finally {
+        setIsSubmitting(false);
+      }
+
+      return;
+    }
+
+    const validationResult = credentialsSchema.safeParse({ email, password });
 
     if (!validationResult.success) {
       setFieldErrors(getFieldErrors(validationResult.error.issues));
@@ -121,7 +162,7 @@ export function AuthForm({
     setIsSubmitting(true);
 
     try {
-      await onSubmit(baseInput);
+      await onSubmit(validationResult.data);
     } catch {
       // AuthProvider exposes the service error through externalError.
     } finally {
@@ -129,6 +170,7 @@ export function AuthForm({
     }
   };
 
+  const usernameError = visibleFieldErrors.username;
   const emailError = visibleFieldErrors.email;
   const passwordError = visibleFieldErrors.password;
   const confirmPasswordError = visibleFieldErrors.confirmPassword;
@@ -148,15 +190,36 @@ export function AuthForm({
         </p>
       ) : null}
 
+      {mode === 'register' ? (
+        <div className="auth-form__field">
+          <label htmlFor={usernameId}>Имя пользователя</label>
+          <input
+            id={usernameId}
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={(event) => handleFieldChange('username', event.target.value)}
+            placeholder="username"
+            aria-invalid={Boolean(usernameError)}
+            aria-describedby={usernameError ? `${usernameId}-error` : undefined}
+          />
+          {usernameError ? (
+            <p id={`${usernameId}-error`} className="auth-form__field-error" role="alert">
+              {usernameError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="auth-form__field">
-        <label htmlFor={emailId}>Email</label>
+        <label htmlFor={emailId}>E-mail</label>
         <input
           id={emailId}
           type="email"
           autoComplete="email"
           value={email}
           onChange={(event) => handleFieldChange('email', event.target.value)}
-          placeholder="name@example.com"
+          placeholder="you@example.com"
           aria-invalid={emailHasError}
           aria-describedby={emailError ? `${emailId}-error` : undefined}
         />
@@ -169,16 +232,28 @@ export function AuthForm({
 
       <div className="auth-form__field">
         <label htmlFor={passwordId}>Пароль</label>
-        <input
-          id={passwordId}
-          type="password"
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          value={password}
-          onChange={(event) => handleFieldChange('password', event.target.value)}
-          placeholder="Не менее 8 символов"
-          aria-invalid={passwordHasError}
-          aria-describedby={passwordError ? `${passwordId}-error` : undefined}
-        />
+        <div className="auth-form__password-control">
+          <input
+            id={passwordId}
+            type={isPasswordVisible ? 'text' : 'password'}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            value={password}
+            onChange={(event) => handleFieldChange('password', event.target.value)}
+            placeholder="Не менее 8 символов"
+            aria-invalid={passwordHasError}
+            aria-describedby={passwordError ? `${passwordId}-error` : undefined}
+          />
+          <button
+            className="auth-form__password-toggle"
+            type="button"
+            aria-label={isPasswordVisible ? 'Скрыть пароль' : 'Показать пароль'}
+            aria-pressed={isPasswordVisible}
+            aria-controls={passwordId}
+            onClick={() => setIsPasswordVisible((visible) => !visible)}
+          >
+            <EyeIcon isOpen={isPasswordVisible} />
+          </button>
+        </div>
         {passwordError ? (
           <p id={`${passwordId}-error`} className="auth-form__field-error" role="alert">
             {passwordError}
@@ -186,19 +261,33 @@ export function AuthForm({
         ) : null}
       </div>
 
+      {mode === 'login' ? <div className="auth-form__forgot-password">Забыли пароль?</div> : null}
+
       {mode === 'register' ? (
         <div className="auth-form__field">
           <label htmlFor={confirmPasswordId}>Подтвердите пароль</label>
-          <input
-            id={confirmPasswordId}
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(event) => handleFieldChange('confirmPassword', event.target.value)}
-            placeholder="Повторите пароль"
-            aria-invalid={Boolean(confirmPasswordError)}
-            aria-describedby={confirmPasswordError ? `${confirmPasswordId}-error` : undefined}
-          />
+          <div className="auth-form__password-control">
+            <input
+              id={confirmPasswordId}
+              type={isConfirmPasswordVisible ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => handleFieldChange('confirmPassword', event.target.value)}
+              placeholder="Повторите пароль"
+              aria-invalid={Boolean(confirmPasswordError)}
+              aria-describedby={confirmPasswordError ? `${confirmPasswordId}-error` : undefined}
+            />
+            <button
+              className="auth-form__password-toggle"
+              type="button"
+              aria-label={isConfirmPasswordVisible ? 'Скрыть пароль' : 'Показать пароль'}
+              aria-pressed={isConfirmPasswordVisible}
+              aria-controls={confirmPasswordId}
+              onClick={() => setIsConfirmPasswordVisible((visible) => !visible)}
+            >
+              <EyeIcon isOpen={isConfirmPasswordVisible} />
+            </button>
+          </div>
           {confirmPasswordError ? (
             <p id={`${confirmPasswordId}-error`} className="auth-form__field-error" role="alert">
               {confirmPasswordError}
@@ -216,6 +305,15 @@ export function AuthForm({
           Нет аккаунта?{' '}
           <Link className="auth-form__switch-link" to="/register">
             Зарегистрироваться
+          </Link>
+        </p>
+      ) : null}
+
+      {mode === 'register' ? (
+        <p className="auth-form__switch">
+          Уже есть аккаунт?{' '}
+          <Link className="auth-form__switch-link" to="/login">
+            Войти
           </Link>
         </p>
       ) : null}
