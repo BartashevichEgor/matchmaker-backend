@@ -48,10 +48,11 @@ describe('AppLayout', () => {
     );
   }
 
-  it('renders the sidebar with logo and navigation when user is authenticated', async () => {
+  it('renders navigation and the compact header brand when user is authenticated', async () => {
     renderAppLayout(<div data-testid="child-content">Child content</div>);
 
-    expect(await screen.findByRole('link', { name: 'Matchmaker' })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Matchmaker' })).toHaveAttribute('href', '/feed');
     const sidebarNavigation = screen.getByRole('navigation', { name: 'Основная навигация' });
     expect(sidebarNavigation).toBeInTheDocument();
     expect(within(sidebarNavigation).getByRole('link', { name: 'Feed' })).toBeInTheDocument();

@@ -128,13 +128,6 @@ export function AppLayout() {
         className={`app-sidebar${isMobileMenuOpen ? ' app-sidebar--open' : ''}`}
         aria-label="Боковая навигация"
       >
-        <Link to="/feed" className="app-sidebar__brand" aria-label="Matchmaker" onClick={closeMobileMenu}>
-          <span className="app-sidebar__brand-mark" aria-hidden="true">
-            <img src="/assets/matchmaker-logo.png" alt="" />
-          </span>
-          <span className="app-sidebar__brand-name">Matchmaker</span>
-        </Link>
-
         <div className="app-sidebar__brand-story" aria-hidden="true">
           <img src="/assets/matchmaker-logo.png" alt="" />
           <strong>Matchmaker</strong>
@@ -198,13 +191,17 @@ export function AppLayout() {
             onClick={closeMobileMenu}
           >
             <SidebarIcon name={item.icon} />
-            <span>{item.label}</span>
+            <span>{item.displayLabel}</span>
           </Link>
         ))}
       </nav>
 
       <main className="app-content">
         <header className="app-header">
+          <Link to="/feed" className="app-header__brand" aria-label="Matchmaker" onClick={closeMobileMenu}>
+            <img src="/assets/matchmaker-logo.png" alt="" />
+            <span>Matchmaker</span>
+          </Link>
           <nav className="app-header__nav" aria-label="Навигация по разделам">
             {NAV_ITEMS.map((item) => (
               <Link

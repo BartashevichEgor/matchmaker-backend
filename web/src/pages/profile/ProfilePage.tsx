@@ -1,14 +1,35 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { ProfileAvatar } from '../../entities/profile/ui/ProfileAvatar';
 import { Accordion } from '../../shared/ui/Accordion';
 
 export function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const username = user?.username ?? 'Veronika';
   const avatarName = user?.username ?? 'Имя Фамилия';
   const [openSections, setOpenSections] = useState({ experience: false, links: false });
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setLogoutError(null);
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+      navigate('/register', { replace: true });
+    } catch {
+      setLogoutError('Не удалось выйти из аккаунта. Попробуйте ещё раз.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <section className="profile-page" aria-labelledby="profile-title">
@@ -21,6 +42,20 @@ export function ProfilePage() {
           <Link className="button button-primary profile-card__edit" to="/profile/create?step=1">
             Редактировать
           </Link>
+          <button
+            className="button button-secondary profile-card__logout"
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={isLoggingOut}
+            aria-busy={isLoggingOut}
+          >
+            {isLoggingOut ? 'Выход...' : 'Выйти из профиля'}
+          </button>
+          {logoutError ? (
+            <p className="profile-card__error" role="alert">
+              {logoutError}
+            </p>
+          ) : null}
         </article>
 
         <div className="profile-details">

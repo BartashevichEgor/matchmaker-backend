@@ -19,6 +19,14 @@ function HeartIcon() {
   );
 }
 
+function FilterIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="catalog-filter-icon">
+      <path d="M4 7h16M4 17h16M9 7a2 2 0 1 0 0 0.01M15 17a2 2 0 1 0 0 0.01" />
+    </svg>
+  );
+}
+
 function FilterField({ label, placeholder }: { label: string; placeholder: string }) {
   return (
     <label className="catalog-filter__field">
@@ -36,6 +44,9 @@ export function CatalogPage() {
     <section className="catalog-page" aria-labelledby="catalog-title">
       <div className="catalog-page__heading">
         <h1 id="catalog-title" aria-label="Лента — Каталог">Каталог</h1>
+        <span className="catalog-page__filter-icon" aria-hidden="true">
+          <FilterIcon />
+        </span>
       </div>
 
       <div className="catalog-layout">
