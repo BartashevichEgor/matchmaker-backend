@@ -1,8 +1,16 @@
-import re
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 
 
 class Input(BaseModel):
@@ -22,30 +30,39 @@ class EmailInput(Input):
         return str(value).lower()
 
 
-Password = Annotated[str, Field(min_length=10, max_length=128)]
+# The React client validates an eight-character minimum.  Keep this server-side
+# rule identical so a value accepted by the form is not rejected by the API.
+Password = Annotated[str, Field(min_length=8, max_length=128)]
 
 
 class UsernameInput(Input):
-    """A public handle shown in the profile and catalogue UI."""
+    """A public name shown in the profile and catalogue UI."""
 
-    username: str = Field(min_length=3, max_length=30)
+    username: str = Field(min_length=1, max_length=50)
 
     @field_validator("username")
     @classmethod
     def normalized_username(cls, value):
-        value = value.strip().lower()
-        if not re.fullmatch(r"[a-z0-9._-]{3,30}", value):
-            raise ValueError("Username must contain 3-30 letters, digits, dots, underscores or hyphens")
+        value = value.strip()
+        if not value:
+            raise ValueError("Username cannot be blank")
         return value
 
 
 class Register(EmailInput, UsernameInput):
     password: Password
-    password_confirm: str = Field(max_length=128)
+    password_confirm: str | None = Field(
+        default=None,
+        max_length=128,
+        validation_alias=AliasChoices("password_confirm", "confirmPassword"),
+    )
 
     @model_validator(mode="after")
     def same_password(self):
-        if self.password != self.password_confirm:
+        # The React form compares its two password fields before it calls the
+        # AuthService and deliberately sends only password.  Other clients may
+        # still send either confirmation-field spelling and get this extra check.
+        if self.password_confirm is not None and self.password != self.password_confirm:
             raise ValueError("Passwords do not match")
         return self
 
@@ -60,7 +77,10 @@ class Verify(EmailInput):
 
 class ResetPassword(Verify):
     password: Password
-    password_confirm: str = Field(max_length=128)
+    password_confirm: str = Field(
+        max_length=128,
+        validation_alias=AliasChoices("password_confirm", "confirmPassword"),
+    )
 
     @model_validator(mode="after")
     def same_password(self):
@@ -92,6 +112,15 @@ class UserRead(Output):
     is_verified: bool
     is_admin: bool
     created_at: datetime
+
+
+class FrontendUser(Output):
+    """The TypeScript AuthService-compatible view of the current user."""
+
+    id: str
+    username: str
+    email: str
+    created_at: datetime = Field(serialization_alias="createdAt")
 
 
 class CatalogInput(Input):

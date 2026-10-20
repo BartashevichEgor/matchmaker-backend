@@ -73,6 +73,16 @@ def issue_tokens(db, user):
     )
 
 
+def frontend_user(user):
+    """Keep the web adapter independent from the database naming convention."""
+    return s.FrontendUser(
+        id=str(user.id),
+        username=user.username,
+        email=user.email,
+        created_at=user.created_at,
+    )
+
+
 @router.post("/register", response_model=s.Message, status_code=201)
 async def register(data: s.Register, request: Request, db: Db):
     throttle(request, "register", data.email)
@@ -165,6 +175,12 @@ def logout(user: CurrentUser, db: Db):
     db.execute(delete(RefreshSession).where(RefreshSession.user_id == user.id))
     db.commit()
     return s.Message(message="All sessions ended.")
+
+
+@router.get("/session", response_model=s.FrontendUser)
+def session(user: CurrentUser):
+    """Return the active account in the field names used by the React AuthService."""
+    return frontend_user(user)
 
 
 @router.post("/forgot-password", response_model=s.Message)

@@ -31,10 +31,10 @@
       </form>
       <form id="register-form" class="auth-form" hidden>
         <h2>Регистрация</h2>
-        <label>Имя пользователя<input name="username" autocomplete="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._-]{3,30}" placeholder="username"></label>
+        <label>Имя пользователя<input name="username" autocomplete="username" required minlength="1" maxlength="50" placeholder="Твоё имя"></label>
         <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
-        <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required placeholder="Не менее 10 символов"></label>
-        <label>Повтори пароль<input name="password_confirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+        <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required placeholder="Не менее 8 символов"></label>
+        <label>Повтори пароль<input name="password_confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
         <button class="primary" type="submit">Зарегистрироваться</button>
         <p class="auth-switch">Уже есть аккаунт? <button type="button" class="inline-button" data-tab="login">Войти</button></p>
       </form>
@@ -53,8 +53,8 @@
         <h2>Новый пароль.</h2>
         <label>Email<input name="email" type="email" required autocomplete="email"></label>
         <label>Код<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
-        <label>Новый пароль<input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
-        <label>Повтори пароль<input name="password_confirm" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+        <label>Новый пароль<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+        <label>Повтори пароль<input name="password_confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
         <button class="primary" type="submit">Сохранить пароль →</button>
       </form>
       <p id="local-hint" class="local-hint" hidden>Локальная демонстрация: письма сохраняются в <code>core-api/.local/outbox</code>. Открой последнее письмо в VS Code и скопируй код.</p>

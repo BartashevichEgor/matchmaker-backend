@@ -25,12 +25,38 @@ def test_registration_validation_and_no_password_leak(client):
             "password": PASSWORD,
             "password_confirm": "different",
         },
-        {"username": "?", "email": "a@example.com", "password": PASSWORD, "password_confirm": PASSWORD},
+        {"username": "   ", "email": "a@example.com", "password": PASSWORD, "password_confirm": PASSWORD},
     ):
         response = client.post("/api/v1/auth/register", json=body)
         assert response.status_code == 422
         assert PASSWORD not in response.text
         assert '"input"' not in response.text
+
+
+def test_react_register_payload_and_session_shape(client, db):
+    data = {
+        "username": "  Web User  ",
+        "email": "web@example.com",
+        "password": "password",
+    }
+    assert client.post("/api/v1/auth/register", json=data).status_code == 201
+    code = read_code(data["email"])
+    assert (
+        client.post("/api/v1/auth/verify-email", json={"email": data["email"], "code": code}).status_code
+        == 200
+    )
+    login = client.post("/api/v1/auth/login", json={"email": data["email"], "password": data["password"]})
+    assert login.status_code == 200
+    response = client.get(
+        "/api/v1/auth/session",
+        headers={"Authorization": f"Bearer {login.json()['access_token']}"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == str(db.scalar(select(User.id).where(User.email == data["email"])))
+    assert body["username"] == "Web User"
+    assert body["email"] == data["email"]
+    assert isinstance(body["createdAt"], str)
 
 
 def test_registration_duplicate_and_unverified_login(client, db):

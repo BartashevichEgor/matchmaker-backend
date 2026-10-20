@@ -100,7 +100,7 @@ function Connect {
 }
 
 $users = New-Table 'users' 120 230 @(
-    'id : bigint|PK', 'username : varchar(30)|UQ', 'email : varchar(254)|UQ',
+    'id : bigint|PK', 'username : varchar(50)|UQ', 'email : varchar(254)|UQ',
     'hashed_password : varchar(255)', 'is_active : boolean', 'is_verified : boolean',
     'is_admin : boolean', 'token_version : integer', 'created_at : timestamptz'
 )

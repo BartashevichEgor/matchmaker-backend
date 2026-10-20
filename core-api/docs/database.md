@@ -68,7 +68,7 @@ erDiagram
 
 | Таблица | Ключ и связи | Назначение и ограничения |
 |---|---|---|
-| users | id PK; username UNIQUE; email UNIQUE | Публичный username и email приводятся к нижнему регистру API; пароль хранится как Argon2-хеш; права администратора меняются только оператором |
+| users | id PK; username UNIQUE; email UNIQUE | Публичный username обрезается по краям и хранится как введён пользователем; email приводится к нижнему регистру; пароль хранится как Argon2-хеш; права администратора меняются только оператором |
 | profiles | id PK; user_id FK UNIQUE; role_id FK nullable | При регистрации создаётся пустая анкета; дата рождения не отдаётся другим пользователям |
 | skills | id PK; name UNIQUE | Справочник технологий |
 | roles | id PK; name UNIQUE | Backend, Frontend, iOS и другие специализации; не права доступа |
