@@ -39,7 +39,7 @@ fun RegisterScreen(
     // Валидация
     val isNameValid = userName.isEmpty() || userName.length >= 2
     val isEmailValid = email.isEmpty() || (email.contains("@") && email.contains("."))
-    val isPasswordValid = password.isEmpty() || password.length >= 6
+    val isPasswordValid = password.isEmpty() || password.length >= 8
     val doPasswordsMatch = confirmPassword.isEmpty() || password == confirmPassword
 
     val canRegister = userName.isNotBlank() && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank() &&

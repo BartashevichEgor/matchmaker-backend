@@ -45,11 +45,22 @@ class AuthApi(
             contentType(ContentType.Application.Json)
             setBody(
                 RegisterRequest(
-                    name = name.trim(),
+                    username = name.trim(),
                     email = email.trim(),
                     password = password,
                 )
             )
+        }
+
+        if (!response.status.isSuccess()) {
+            throw ApiException(readError(response.bodyAsText(), response.status.value))
+        }
+    }
+
+    suspend fun verifyEmail(email: String, code: String) {
+        val response = client.post("$baseUrl/auth/verify-email") {
+            contentType(ContentType.Application.Json)
+            setBody(VerifyEmailRequest(email = email.trim(), code = code.trim()))
         }
 
         if (!response.status.isSuccess()) {

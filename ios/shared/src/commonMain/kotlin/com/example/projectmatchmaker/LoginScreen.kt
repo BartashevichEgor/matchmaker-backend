@@ -34,7 +34,7 @@ fun LoginScreen(
 
     // Валидация
     val isEmailValid = email.isEmpty() || (email.contains("@") && email.contains("."))
-    val isPasswordValid = password.isEmpty() || password.length >= 6
+    val isPasswordValid = password.isEmpty() || password.length >= 8
 
     val canSubmit = email.isNotBlank() && password.isNotBlank() && isEmailValid && isPasswordValid
 

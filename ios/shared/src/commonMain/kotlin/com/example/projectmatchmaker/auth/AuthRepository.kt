@@ -13,13 +13,13 @@ class AuthRepository(
         TokenStorage.saveToken(token)
     }
 
-    suspend fun register(name: String, email: String, password: String): Result<Unit> = authRequest {
+    suspend fun register(name: String, email: String, password: String): Result<String> = authRequest {
         api.register(name, email, password)
+        email.trim()
+    }
 
-        // После успешной регистрации выполняем вход и сохраняем JWT.
-        val token = api.login(email, password).accessToken
-        require(token.isNotBlank()) { "Сервер вернул пустой токен" }
-        TokenStorage.saveToken(token)
+    suspend fun verifyEmail(email: String, code: String): Result<Unit> = authRequest {
+        api.verifyEmail(email, code)
     }
 
     fun logout() {
@@ -30,9 +30,8 @@ class AuthRepository(
         api.close()
     }
 
-    private suspend fun authRequest(block: suspend () -> Unit): Result<Unit> = try {
-        block()
-        Result.success(Unit)
+    private suspend fun <T> authRequest(block: suspend () -> T): Result<T> = try {
+        Result.success(block())
     } catch (error: Throwable) {
         val technicalMessage = error.message.orEmpty()
         val userMessage = when {
