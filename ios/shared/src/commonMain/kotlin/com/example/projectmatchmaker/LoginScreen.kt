@@ -15,21 +15,22 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private val DarkBgColor = Color(0xFF2C0F12)
-private val CardBgColor = Color(0xFFEFE4BE)
-private val PrimaryButtonColor = Color(0xFF5B191B)
-private val DisabledButtonColor = Color(0xFFA57B6C)
-private val ErrorColor = Color(0xFF7A1315)
-private val TextDarkColor = Color(0xFF2C0F12)
+import androidx.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.launch
 
 @Composable
+@Preview
 fun LoginScreen(
-    onNavigateToRegister: () -> Unit = {}
+    onNavigateToRegister: () -> Unit = {},
+    onLogin: suspend (email: String, password: String) -> Result<Unit> = { _, _ -> Result.success(Unit) },
+    onAuthenticated: () -> Unit = {},
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var serverError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     // Валидация
     val isEmailValid = email.isEmpty() || (email.contains("@") && email.contains("."))
@@ -162,8 +163,18 @@ fun LoginScreen(
 
                     // Кнопка Войти
                     Button(
-                        onClick = { },
-                        enabled = canSubmit,
+                        onClick = {
+                            serverError = null
+                            scope.launch {
+                                isLoading = true
+                                val result = onLogin(email, password)
+                                isLoading = false
+
+                                result.onSuccess { onAuthenticated() }
+                                    .onFailure { serverError = it.message ?: "Не удалось войти" }
+                            }
+                        },
+                        enabled = canSubmit && !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PrimaryButtonColor,
                             disabledContainerColor = DisabledButtonColor,
@@ -175,7 +186,24 @@ fun LoginScreen(
                             .fillMaxWidth()
                             .height(48.dp)
                     ) {
-                        Text("Войти", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text("Войти", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    serverError?.let { message ->
+                        Text(
+                            text = message,
+                            color = ErrorColor,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))

@@ -15,33 +15,34 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private val DarkBgColor = Color(0xFF2C0F12)
-private val CardBgColor = Color(0xFFEFE4BE)
-private val PrimaryButtonColor = Color(0xFF5B191B)
-private val DisabledButtonColor = Color(0xFFA57B6C)
-private val ErrorColor = Color(0xFF7A1315)
-private val TextDarkColor = Color(0xFF2C0F12)
+import androidx.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.launch
 
 @Composable
+@Preview
 fun RegisterScreen(
-    onNavigateToLogin: () -> Unit = {}
+    onNavigateToLogin: () -> Unit = {},
+    onRegister: suspend (name: String, email: String, password: String) -> Result<Unit> = { _, _, _ -> Result.success(Unit) },
+    onAuthenticated: () -> Unit = {},
 ) {
-    var name by remember { mutableStateOf("") }
+    var userName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
 
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isConfirmPasswordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var serverError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     // Валидация
-    val isNameValid = name.isEmpty() || name.length >= 2
+    val isNameValid = userName.isEmpty() || userName.length >= 2
     val isEmailValid = email.isEmpty() || (email.contains("@") && email.contains("."))
     val isPasswordValid = password.isEmpty() || password.length >= 6
     val doPasswordsMatch = confirmPassword.isEmpty() || password == confirmPassword
 
-    val canRegister = name.isNotBlank() && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank() &&
+    val canRegister = userName.isNotBlank() && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank() &&
             isNameValid && isEmailValid && isPasswordValid && doPasswordsMatch
 
     Box(
@@ -82,15 +83,15 @@ fun RegisterScreen(
                     // Имя
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "Имя",
+                            text = "Имя пользователя",
                             fontSize = 12.sp,
                             color = TextDarkColor,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
                         OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            placeholder = { Text("Иван", color = Color.Gray) },
+                            value = userName,
+                            onValueChange = { userName = it },
+                            placeholder = { Text("username", color = Color.Gray) },
                             singleLine = true,
                             isError = !isNameValid,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -106,7 +107,7 @@ fun RegisterScreen(
                         )
                         if (!isNameValid) {
                             Text(
-                                text = "Имя должно быть не короче 2 символов",
+                                text = "Имя пользователя должно быть не короче 2 символов",
                                 color = ErrorColor,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(top = 4.dp, start = 4.dp)
@@ -242,8 +243,18 @@ fun RegisterScreen(
 
                     // Кнопка Зарегистрироваться
                     Button(
-                        onClick = { },
-                        enabled = canRegister,
+                        onClick = {
+                            serverError = null
+                            scope.launch {
+                                isLoading = true
+                                val result = onRegister(userName, email, password)
+                                isLoading = false
+
+                                result.onSuccess { onAuthenticated() }
+                                    .onFailure { serverError = it.message ?: "Не удалось зарегистрироваться" }
+                            }
+                        },
+                        enabled = canRegister && !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PrimaryButtonColor,
                             disabledContainerColor = DisabledButtonColor,
@@ -255,7 +266,24 @@ fun RegisterScreen(
                             .fillMaxWidth()
                             .height(48.dp)
                     ) {
-                        Text("Зарегистрироваться", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text("Зарегистрироваться", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    serverError?.let { message ->
+                        Text(
+                            text = message,
+                            color = ErrorColor,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))

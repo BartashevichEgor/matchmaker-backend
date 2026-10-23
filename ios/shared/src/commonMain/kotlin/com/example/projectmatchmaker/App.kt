@@ -1,38 +1,97 @@
 package com.example.projectmatchmaker
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
-import org.jetbrains.compose.resources.painterResource
 
-import projectmatchmaker.shared.generated.resources.Res
-import projectmatchmaker.shared.generated.resources.compose_multiplatform
+private enum class AppScreen {
+    LOGIN,
+    REGISTER,
+    CREATE_PROFILE,
+    ADD_SKILLS,
+    PROFILE,
+    CATALOG,
+}
 
+/**
+ * Локальная навигация прототипа. Backend здесь намеренно не используется:
+ * введённые данные живут в состоянии App и передаются между экранами.
+ */
 @Composable
-@Preview
 fun App() {
-    var isLoginScreen by remember { mutableStateOf(true) }
+    var screen by remember { mutableStateOf(AppScreen.LOGIN) }
+    var profile by remember { mutableStateOf(ProfileData()) }
+
+    val basicProfileIsValid = profile.name.trim().length >= 2 && profile.role.isNotBlank()
+    val skillsAreValid = profile.skills.isNotEmpty()
 
     MaterialTheme {
-        if (isLoginScreen) {
-            LoginScreen(
-                onNavigateToRegister = { isLoginScreen = false }
+        when (screen) {
+            AppScreen.LOGIN -> LoginScreen(
+                onLogin = { email, _ ->
+                    profile = profile.copy(email = email.trim())
+                    Result.success(Unit)
+                },
+                onAuthenticated = { screen = AppScreen.CREATE_PROFILE },
+                onNavigateToRegister = { screen = AppScreen.REGISTER },
             )
-        } else {
-            RegisterScreen(
-                onNavigateToLogin = { isLoginScreen = true }
+
+            AppScreen.REGISTER -> RegisterScreen(
+                onRegister = { name, email, _ ->
+                    profile = profile.copy(name = name.trim(), email = email.trim())
+                    Result.success(Unit)
+                },
+                onAuthenticated = { screen = AppScreen.CREATE_PROFILE },
+                onNavigateToLogin = { screen = AppScreen.LOGIN },
+            )
+
+            AppScreen.CREATE_PROFILE -> CreateProfileScreen(
+                profile = profile,
+                onProfileChange = { profile = it },
+                canContinue = basicProfileIsValid,
+                onNext = { if (basicProfileIsValid) screen = AppScreen.ADD_SKILLS },
+                onCatalog = { screen = AppScreen.CATALOG },
+            )
+
+            AppScreen.ADD_SKILLS -> SkillsScreen(
+                profile = profile,
+                onProfileChange = { profile = it },
+                canCreate = skillsAreValid,
+                onBack = { screen = AppScreen.CREATE_PROFILE },
+                onCreate = { if (skillsAreValid) screen = AppScreen.PROFILE },
+                onCatalog = { screen = AppScreen.CATALOG },
+            )
+
+            AppScreen.PROFILE -> ProfileScreen(
+                profile = profile,
+                onEdit = { screen = AppScreen.CREATE_PROFILE },
+                onCatalog = { screen = AppScreen.CATALOG },
+                onLogout = {
+                    profile = ProfileData()
+                    screen = AppScreen.LOGIN
+                },
+            )
+
+            AppScreen.CATALOG -> CatalogScreen(
+                onCatalog = { screen = AppScreen.CATALOG },
+                onProfile = {
+                    screen = if (basicProfileIsValid && skillsAreValid) {
+                        AppScreen.PROFILE
+                    } else {
+                        AppScreen.CREATE_PROFILE
+                    }
+                },
             )
         }
     }
+}
+
+@Composable
+@Preview
+private fun AppPreview() {
+    MaterialTheme { App() }
 }
