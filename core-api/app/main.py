@@ -18,6 +18,16 @@ from app.core.config import ROOT, get_settings
 settings = get_settings()
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
+LOG_DIR = ROOT / "log"
+LOG_DIR.mkdir(exist_ok=True)
+logger.add(
+    LOG_DIR / "matchmaker_{time:YYYY-MM-DD}.txt",
+    level="DEBUG",
+    rotation="00:00",
+    retention="14 days",
+    compression="zip",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+)
 app = FastAPI(
     title="Matchmaker API",
     version="0.2.0",
