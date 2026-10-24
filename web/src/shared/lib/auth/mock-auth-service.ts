@@ -216,6 +216,11 @@ async function login(input: CredentialsInput): Promise<User> {
   return toPublicUser(authenticateUser(input));
 }
 
+async function verifyEmail(_email: string, _code: string): Promise<void> {
+  // The mock service has no e-mail delivery step.  Keeping this method makes
+  // component tests use the same interface as the production API service.
+}
+
 async function logout(): Promise<void> {
   writeSession(null);
 }
@@ -241,6 +246,7 @@ async function getCurrentUser(): Promise<User | null> {
 export const mockAuthService: AuthService = {
   register,
   login,
+  verifyEmail,
   logout,
   getCurrentUser,
 };

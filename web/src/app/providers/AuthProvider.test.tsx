@@ -186,6 +186,7 @@ function createAuthService(currentUser: User | null): AuthService {
     getCurrentUser: vi.fn().mockResolvedValue(currentUser),
     login: vi.fn().mockResolvedValue(fallbackUser),
     register: vi.fn().mockResolvedValue(fallbackUser),
+    verifyEmail: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn().mockResolvedValue(undefined),
   };
 }

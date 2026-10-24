@@ -13,8 +13,11 @@ export function RegisterPage() {
   }
 
   const handleSubmit = async (input: RegisterInput) => {
-    await register(input);
-    navigate('/feed', { replace: true });
+    const createdUser = await register(input);
+    navigate(
+      createdUser.id ? '/feed' : `/verify-email?email=${encodeURIComponent(input.email.trim().toLowerCase())}`,
+      { replace: true },
+    );
   };
 
   return (
@@ -22,7 +25,7 @@ export function RegisterPage() {
       <AuthForm
         mode="register"
         title="Создать аккаунт"
-        description="Зарегистрируйтесь, чтобы сразу получить локальную mock-сессию."
+        description="После регистрации подтвердите e-mail кодом из письма."
         submitLabel="Создать аккаунт"
         onSubmit={handleSubmit}
         externalError={authError}

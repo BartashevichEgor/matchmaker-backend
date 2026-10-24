@@ -19,6 +19,7 @@ describe('ProfilePage', () => {
       }),
       login: vi.fn(),
       register: vi.fn(),
+      verifyEmail: vi.fn(),
       logout: vi.fn().mockResolvedValue(undefined),
     };
 

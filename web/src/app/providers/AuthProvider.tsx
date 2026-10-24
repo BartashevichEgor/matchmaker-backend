@@ -16,6 +16,7 @@ type AuthContextValue = {
   authErrorCode: AuthErrorCode | null;
   login: (input: CredentialsInput) => Promise<User>;
   register: (input: RegisterInput) => Promise<User>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
 };
@@ -115,8 +116,23 @@ export function AuthProvider({
 
         try {
           const nextUser = await authService.register(input);
-          setUser(nextUser);
+          // The production API returns an intentionally empty id until e-mail
+          // verification is complete. The mock used by component tests returns
+          // a local session and keeps the original test flow intact.
+          if (nextUser.id) setUser(nextUser);
           return nextUser;
+        } catch (error) {
+          const details = getErrorDetails(error);
+          setAuthError(details.message);
+          setAuthErrorCode(details.code);
+          throw error;
+        }
+      },
+      verifyEmail: async (email: string, code: string) => {
+        setAuthError(null);
+        setAuthErrorCode(null);
+        try {
+          await authService.verifyEmail(email, code);
         } catch (error) {
           const details = getErrorDetails(error);
           setAuthError(details.message);

@@ -21,11 +21,19 @@ export type RegisterFormInput = RegisterInput & {
 export type AuthService = {
   register(input: RegisterInput): Promise<User>;
   login(input: CredentialsInput): Promise<User>;
+  verifyEmail(email: string, code: string): Promise<void>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;
 };
 
-export type AuthErrorCode = 'duplicate_email' | 'invalid_credentials' | 'storage_unavailable' | 'validation_error';
+export type AuthErrorCode =
+  | 'duplicate_email'
+  | 'duplicate_username'
+  | 'invalid_credentials'
+  | 'email_unverified'
+  | 'network_error'
+  | 'storage_unavailable'
+  | 'validation_error';
 
 export class AuthError extends Error {
   code: AuthErrorCode;

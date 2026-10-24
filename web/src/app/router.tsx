@@ -4,6 +4,7 @@ import { AppLayout } from '../layouts/AppLayout/AppLayout';
 import { HomePage } from '../pages/home/HomePage';
 import { LoginPage } from '../pages/login/LoginPage';
 import { RegisterPage } from '../pages/register/RegisterPage';
+import { VerifyEmailPage } from '../pages/verify-email/VerifyEmailPage';
 import { NotFoundPage } from '../pages/not-found/NotFoundPage';
 import { CatalogPage } from '../pages/catalog/CatalogPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
@@ -17,6 +18,7 @@ export function AppRouter() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       
       {/* All authenticated pages share one layout and one header. */}
       <Route
