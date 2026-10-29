@@ -1,0 +1,5 @@
+package com.example.projectmatchmaker
+
+import androidx.compose.ui.window.ComposeUIViewController
+
+fun MainViewController() = ComposeUIViewController { App() }
