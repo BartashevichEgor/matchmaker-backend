@@ -1,10 +1,22 @@
+param([switch]$UseSqlite)
+
 $ErrorActionPreference = 'Stop'
 $projectPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $projectPython)) {
     throw 'Virtual environment missing. Run: py -m venv .venv, then install core-api/requirements-dev.txt.'
 }
-if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'core-api\.local\postgres\PG_VERSION')) {
-    & (Join-Path $PSScriptRoot 'start-local-db.ps1')
+if ($UseSqlite) {
+    $env:DATABASE_URL = "sqlite:///$((Join-Path $PSScriptRoot 'core-api\.local\matchmaker-local.db').Replace('\', '/'))"
+    Write-Host 'Using the isolated SQLite database for this local run.'
+} elseif (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'core-api\.local\postgres\PG_VERSION')) {
+    try {
+        & (Join-Path $PSScriptRoot 'start-local-db.ps1')
+    } catch {
+        # Preserve the existing PostgreSQL data directory.  A blocked local
+        # port must not prevent the web application from being demonstrated.
+        $env:DATABASE_URL = "sqlite:///$((Join-Path $PSScriptRoot 'core-api\.local\matchmaker-local.db').Replace('\', '/'))"
+        Write-Warning "PostgreSQL is unavailable; using an isolated SQLite database for this run. $($_.Exception.Message)"
+    }
 }
 Push-Location (Join-Path $PSScriptRoot 'core-api')
 try {

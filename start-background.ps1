@@ -1,11 +1,23 @@
+param([switch]$UseSqlite)
+
 $ErrorActionPreference = 'Stop'
 $projectPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 $localDir = Join-Path $PSScriptRoot 'core-api\.local'
 if (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue) {
     throw 'Port 8000 is already in use. Check http://127.0.0.1:8000/health before starting another server.'
 }
-if (Test-Path -LiteralPath (Join-Path $localDir 'postgres\PG_VERSION')) {
-    & (Join-Path $PSScriptRoot 'start-local-db.ps1')
+if ($UseSqlite) {
+    $env:DATABASE_URL = "sqlite:///$((Join-Path $localDir 'matchmaker-local.db').Replace('\', '/'))"
+    Write-Host 'Using the isolated SQLite database for this local run.'
+} elseif (Test-Path -LiteralPath (Join-Path $localDir 'postgres\PG_VERSION')) {
+    try {
+        & (Join-Path $PSScriptRoot 'start-local-db.ps1')
+    } catch {
+        # Do not modify the existing PostgreSQL cluster when its local port is
+        # unavailable.  The SQLite fallback keeps the demo server functional.
+        $env:DATABASE_URL = "sqlite:///$((Join-Path $localDir 'matchmaker-local.db').Replace('\', '/'))"
+        Write-Warning "PostgreSQL is unavailable; using an isolated SQLite database for this run. $($_.Exception.Message)"
+    }
 }
 Push-Location (Join-Path $PSScriptRoot 'core-api')
 try {
