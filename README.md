@@ -20,6 +20,18 @@ React 18, TypeScript, Vite, React Router, Zod, Vitest и React Testing Library. 
 
 Контракт backend: [api.md](https://github.com/BartashevichEgor/matchmaker-backend/blob/main/core-api/docs/api.md). Интерактивная документация доступна у запущенного backend на `http://127.0.0.1:8000/docs`.
 
+```powershell
+# in the repository root
+.\start.ps1
+```
+
+The script creates `web/.env` from `.env.example` on the first launch and
+starts Vite on `http://127.0.0.1:5173`.  It uses Node.js 20+ from the normal
+system installation; in this Codex workspace it can also use the bundled
+runtime when dependencies are already installed.
+
+Manual launch remains available:
+
 ```bash
 cd web
 copy .env.example .env
