@@ -10,6 +10,7 @@ if (-not $node) { $node = Get-Command node -ErrorAction SilentlyContinue }
 # Codex Desktop supplies a Node runtime for this local workspace.  It is only
 # a fallback: the normal and portable path remains a user's Node.js 20+ install.
 $codexNode = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
+$codexPnpm = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback\pnpm.cmd'
 if (-not $node -and (Test-Path -LiteralPath $codexNode)) {
     $nodePath = $codexNode
 } elseif ($node) {
@@ -24,8 +25,15 @@ try {
         Copy-Item '.env.example' '.env'
     }
     if (-not (Test-Path -LiteralPath 'node_modules')) {
-        if (-not $npm) { throw 'Dependencies are missing and npm is not available. Install Node.js 20+ and retry.' }
-        & $npm.Source install
+        if ($npm) {
+            & $npm.Source install
+        } elseif (Test-Path -LiteralPath $codexPnpm) {
+            # The project is locked with package-lock.json.  Do not create a
+            # competing pnpm lockfile when using the bundled fallback runner.
+            & $codexPnpm install --no-frozen-lockfile --lockfile=false
+        } else {
+            throw 'Dependencies are missing and npm is not available. Install Node.js 20+ and retry.'
+        }
         if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
     }
     if ($npm) {
