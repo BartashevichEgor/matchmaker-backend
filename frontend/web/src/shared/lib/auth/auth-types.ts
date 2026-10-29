@@ -22,6 +22,7 @@ export type AuthService = {
   register(input: RegisterInput): Promise<User>;
   login(input: CredentialsInput): Promise<User>;
   verifyEmail(email: string, code: string): Promise<void>;
+  resendVerification?(email: string): Promise<void>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;
 };

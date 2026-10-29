@@ -333,8 +333,37 @@ a {
   font-weight: 500;
 }
 
+.auth-form__success,
+.auth-form__hint {
+  margin: -2px 0 0;
+  color: #56704b;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.auth-form__hint {
+  color: #7b625b;
+}
+
+.auth-form__hint code {
+  font-family: inherit;
+  font-weight: 600;
+}
+
 .auth-form__submit {
   width: 100%;
+}
+
+.auth-form__resend {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.auth-form__resend:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .auth-form .button-primary {

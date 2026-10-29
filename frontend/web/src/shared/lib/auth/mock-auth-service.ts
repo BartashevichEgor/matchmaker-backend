@@ -221,6 +221,11 @@ async function verifyEmail(_email: string, _code: string): Promise<void> {
   // component tests use the same interface as the production API service.
 }
 
+async function resendVerification(_email: string): Promise<void> {
+  // The mock service delivers no real e-mail, but preserves the production
+  // contract for pages that offer a second code request.
+}
+
 async function logout(): Promise<void> {
   writeSession(null);
 }
@@ -247,6 +252,7 @@ export const mockAuthService: AuthService = {
   register,
   login,
   verifyEmail,
+  resendVerification,
   logout,
   getCurrentUser,
 };

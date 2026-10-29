@@ -230,3 +230,4 @@ __marimo__/
 *.db-wal
 *.db-shm
 .local/
+/.vite/

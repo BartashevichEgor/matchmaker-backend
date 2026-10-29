@@ -17,6 +17,7 @@ type AuthContextValue = {
   login: (input: CredentialsInput) => Promise<User>;
   register: (input: RegisterInput) => Promise<User>;
   verifyEmail: (email: string, code: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
 };
@@ -133,6 +134,21 @@ export function AuthProvider({
         setAuthErrorCode(null);
         try {
           await authService.verifyEmail(email, code);
+        } catch (error) {
+          const details = getErrorDetails(error);
+          setAuthError(details.message);
+          setAuthErrorCode(details.code);
+          throw error;
+        }
+      },
+      resendVerification: async (email: string) => {
+        setAuthError(null);
+        setAuthErrorCode(null);
+        try {
+          if (!authService.resendVerification) {
+            throw new AuthError('network_error', 'Повторная отправка кода пока недоступна.');
+          }
+          await authService.resendVerification(email);
         } catch (error) {
           const details = getErrorDetails(error);
           setAuthError(details.message);

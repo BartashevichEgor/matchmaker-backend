@@ -66,6 +66,13 @@ async function verifyEmail(email: string, code: string): Promise<void> {
   await request('/auth/verify-email', { method: 'POST', body: JSON.stringify({ email: normalizeEmail(email), code }) });
 }
 
+async function resendVerification(email: string): Promise<void> {
+  await request('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email: normalizeEmail(email) }),
+  });
+}
+
 async function getCurrentUserOrThrow(accessToken: string): Promise<User> {
   return request<User>('/auth/session', { headers: { Authorization: `Bearer ${accessToken}` } });
 }
@@ -104,4 +111,4 @@ async function logout(): Promise<void> {
   }
 }
 
-export const apiAuthService: AuthService = { register, verifyEmail, login, logout, getCurrentUser };
+export const apiAuthService: AuthService = { register, verifyEmail, resendVerification, login, logout, getCurrentUser };
