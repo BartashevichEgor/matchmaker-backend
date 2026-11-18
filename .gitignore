@@ -231,3 +231,4 @@ __marimo__/
 *.db-shm
 .local/
 /.vite/
+node_modules/

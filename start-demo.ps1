@@ -1,4 +1,4 @@
-param([switch]$UseSqlite)
+param([switch]$UseSqlite, [switch]$WithChat)
 
 $ErrorActionPreference = 'Stop'
 $backendArguments = @()
@@ -14,6 +14,16 @@ if ($backendReady) {
 } else {
     & (Join-Path $PSScriptRoot 'start-background.ps1') @backendArguments
     if ($LASTEXITCODE -ne 0) { throw 'The backend did not start.' }
+}
+
+if ($WithChat) {
+    $chatDirectory = Join-Path $PSScriptRoot 'chat-service'
+    if (-not (Test-Path -LiteralPath (Join-Path $chatDirectory 'node_modules'))) {
+        Push-Location $chatDirectory
+        try { npm install } finally { Pop-Location }
+    }
+    Start-Process -FilePath 'npm.cmd' -ArgumentList 'start' -WorkingDirectory $chatDirectory -WindowStyle Hidden
+    Write-Host 'Chat service is starting at ws://127.0.0.1:8010/ws'
 }
 
 $frontendStart = Join-Path $PSScriptRoot 'frontend\start.ps1'
