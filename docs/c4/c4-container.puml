@@ -1,0 +1,18 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+Person(user, "Пользователь")
+System_Boundary(mm, "Matchmaker") {
+  Container(web, "Web-клиент", "React, TypeScript", "Экран регистрации, профиля и каталога")
+  Container(nginx, "Web-сервер", "nginx", "Раздаёт статику и проксирует /api")
+  Container(api, "Core API", "FastAPI", "JWT, профили, проекты, мэтчи")
+  ContainerDb(db, "PostgreSQL", "PostgreSQL 17", "Пользователи, проекты, мэтчи")
+  Container(chat, "Chat service", "Node.js, WebSocket", "Групповые и будущие личные сообщения")
+  ContainerQueue(queue, "Будущий worker", "Очередь", "Уведомления и фоновые задачи")
+}
+Rel(user, web, "Использует", "HTTPS")
+Rel(web, nginx, "Загружает")
+Rel(nginx, api, "Проксирует", "HTTP /api")
+Rel(api, db, "Читает и записывает", "SQL")
+Rel(web, chat, "Подключается", "WebSocket")
+Rel(chat, api, "Проверяет доступ", "HTTP/JWT")
+@enduml

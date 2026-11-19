@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.deps import Db
@@ -13,18 +14,21 @@ def ping() -> dict[str, str]:
     return {"message": "pong"}
 
 
-@router.get("/health")
-def health(db: Db) -> dict[str, str]:
+@router.get("/health", response_model=None)
+@router.get("/api/health", include_in_schema=False, response_model=None)
+def health(db: Db):
+    """Return only an operational health signal; never expose dependency errors."""
     try:
+        # This query deliberately goes through the configured SQLAlchemy engine:
+        # it verifies a real connection for both PostgreSQL and SQLite.
         db.execute(text("SELECT 1"))
-        db.execute(text("SELECT version_num FROM alembic_version"))
         cache = redis_client()
         if cache:
             cache.ping()
     except Exception:
-        raise HTTPException(503, "A dependency is unavailable or migrations are missing") from None
+        return JSONResponse(status_code=503, content={"status": "DOWN"})
     return {
-        "status": "ok",
+        "status": "UP",
         "database": db.bind.dialect.name,
         "cache": "redis" if cache else "local-memory",
         "environment": get_settings().environment,

@@ -19,8 +19,9 @@ def init_config():
 def seed():
     from sqlalchemy import select
 
+    from app.core.config import get_settings
     from app.db import SessionLocal
-    from app.models import Role, Skill
+    from app.models import Project, Role, Skill, User
 
     with SessionLocal() as db:
         for model, names in (
@@ -45,6 +46,36 @@ def seed():
                 if not db.scalar(select(model.id).where(model.name == name)):
                     db.add(model(name=name))
         db.commit()
+        # A local demo catalogue makes the first launch useful. Test databases
+        # intentionally stay deterministic and contain only fixture data.
+        if get_settings().environment != "test":
+            owner = db.scalar(select(User).where(User.email == "demo@matchmaker.local"))
+            if not owner:
+                owner = User(
+                    username="matchmaker-demo",
+                    email="demo@matchmaker.local",
+                    hashed_password="disabled-demo-account",
+                    is_active=True,
+                    is_verified=True,
+                )
+                db.add(owner)
+                db.flush()
+            if not db.scalar(select(Project.id).where(Project.owner_id == owner.id)):
+                db.add_all(
+                    [
+                        Project(
+                            owner_id=owner.id,
+                            title="Команда для учебного хакатона",
+                            description="Ищем frontend-разработчика и дизайнера для MVP сервиса подбора команд.",
+                        ),
+                        Project(
+                            owner_id=owner.id,
+                            title="Пет-проект Matchmaker",
+                            description="Развиваем сервис поиска участников: FastAPI, React, PostgreSQL и UX-исследование.",
+                        ),
+                    ]
+                )
+                db.commit()
     print("Skills and roles are ready.")
 
 

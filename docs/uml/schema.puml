@@ -1,0 +1,22 @@
+@startuml
+hide circle
+skinparam linetype ortho
+entity users { * id : bigint <<PK>>\n--\nusername : string <<UQ>>\nemail : string <<UQ>>\nhashed_password : string\nis_verified : bool }
+entity profiles { * id : bigint <<PK>>\n--\nuser_id : bigint <<FK>>\nrole_id : bigint <<FK>> }
+entity skills { * id : bigint <<PK>>\n--\nname : string <<UQ>> }
+entity profile_skills { * profile_id : bigint <<PK, FK>>\n* skill_id : bigint <<PK, FK>>\nlevel : int }
+entity projects { * id : bigint <<PK>>\n--\nowner_id : bigint <<FK>>\ntitle : string\nstatus : string }
+entity project_skills { * project_id : bigint <<PK, FK>>\n* skill_id : bigint <<PK, FK>>\nweight : int }
+entity swipes { * id : bigint <<PK>>\n--\nproject_id : bigint <<FK>>\ncandidate_id : bigint <<FK>>\ndecision : string }
+entity matches { * id : bigint <<PK>>\n--\nproject_id : bigint <<FK>>\ncandidate_id : bigint <<FK>> }
+users ||--|| profiles
+profiles ||--o{ profile_skills
+skills ||--o{ profile_skills
+users ||--o{ projects : owns
+projects ||--o{ project_skills
+skills ||--o{ project_skills
+projects ||--o{ swipes
+users ||--o{ swipes
+projects ||--o{ matches
+users ||--o{ matches
+@enduml

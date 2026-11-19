@@ -20,6 +20,7 @@ def my_profile(user: CurrentUser, db: Db):
 
 
 @router.patch("/profiles/me", response_model=s.ProfileRead)
+@router.patch("/users/me", response_model=s.ProfileRead, include_in_schema=False)
 def edit_profile(data: s.ProfileUpdate, user: VerifiedUser, db: Db):
     profile = profile_for(db, user.id)
     values = data.model_dump(exclude_unset=True)
@@ -32,6 +33,7 @@ def edit_profile(data: s.ProfileUpdate, user: VerifiedUser, db: Db):
 
 
 @router.put("/profiles/me/skills", response_model=s.ProfileRead)
+@router.put("/users/me/skills", response_model=s.ProfileRead, include_in_schema=False)
 def set_skills(data: s.ProfileSkills, user: VerifiedUser, db: Db):
     profile = profile_for(db, user.id)
     ensure_ids(db, Skill, [v.skill_id for v in data.skills])

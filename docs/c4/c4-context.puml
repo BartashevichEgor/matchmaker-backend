@@ -1,0 +1,10 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+Person(user, "Участник команды", "Ищет проект, создаёт профиль и общается после мэтча")
+Person(admin, "Администратор", "Модерирует каталог")
+System(matchmaker, "Matchmaker", "Подбор проектных команд и участников")
+System_Ext(mail, "Почта", "Подтверждение e-mail")
+Rel(user, matchmaker, "Использует", "HTTPS")
+Rel(admin, matchmaker, "Модерирует", "HTTPS")
+Rel(matchmaker, mail, "Отправляет коды", "SMTP/outbox")
+@enduml

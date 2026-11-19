@@ -157,7 +157,10 @@ def test_moderation_ownership_and_filtering(client, account, db):
 
 def test_health_openapi_and_local_swagger(client):
     assert client.get("/ping").json() == {"message": "pong"}
-    assert client.get("/health").json()["database"] in ("sqlite", "postgresql")
+    health = client.get("/health")
+    assert health.status_code == 200 and health.json()["status"] == "UP"
+    assert health.json()["database"] in ("sqlite", "postgresql")
+    assert client.get("/api/health").json()["status"] == "UP"
     assert client.get("/").status_code == 200
     docs = client.get("/docs")
     assert docs.status_code == 200 and "/swagger-assets/swagger-ui-bundle.js" in docs.text
@@ -165,3 +168,11 @@ def test_health_openapi_and_local_swagger(client):
     spec = client.get("/openapi.json").json()
     assert "/api/v1/auth/register" in spec["paths"]
     assert "/api/v1/projects/{project_id}/my-swipe" in spec["paths"]
+
+
+def test_profile_compatibility_aliases(client, account):
+    _, headers, _ = account("aliases@example.com")
+    updated = client.patch("/api/v1/users/me", headers=headers, json={"first_name": "Егор"})
+    assert updated.status_code == 200 and updated.json()["first_name"] == "Егор"
+    skills = client.put("/api/v1/users/me/skills", headers=headers, json={"skills": [{"skill_id": 1, "level": 4}]})
+    assert skills.status_code == 200 and skills.json()["skills"] == [{"skill_id": 1, "level": 4}]

@@ -121,4 +121,4 @@ VITE_API_BASE_URL=https://<случайное-имя>.lhr.life/api/v1
 
 `app/api` — маршруты; `app/core` — конфигурация, безопасность, лимиты; `app/models.py` — таблицы; `app/schemas.py` — HTTP-модели; `app/services` — представления, почта и scoring; `migrations` — версия схемы; `tests` — сценарии; `app/static` — демонстрационная страница.
 
-Подробнее: [схема БД](docs/database.md), [контракт API и чата](docs/api.md), [интеграция React с FastAPI](docs/frontend-integration.md), [материалы сдачи](docs/delivery.md), [деплой](docs/deployment.md).
+Подробнее: [схема БД](docs/database.md), [контракт API и чата](docs/api.md), [интеграция React с FastAPI](docs/frontend-integration.md), [материалы сдачи](docs/delivery.md), [деплой](docs/deployment.md). Общая Docs-as-Code документация монорепозитория находится в [`../docs`](../docs/README.md).

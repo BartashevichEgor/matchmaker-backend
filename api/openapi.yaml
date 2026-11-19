@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Matchmaker API
+  version: 0.4.0
+  description: Версионируемая копия ключевого контракта. Runtime-спецификация доступна на /openapi.json.
+servers:
+  - url: /api/v1
+paths:
+  /auth/register:
+    post:
+      summary: Регистрация пользователя
+      responses: { '201': { description: Код подтверждения отправлен }, '409': { description: Email или username занят } }
+  /auth/login:
+    post:
+      summary: Вход и выдача JWT
+      responses: { '200': { description: Access и refresh token }, '401': { description: Неверные данные } }
+  /users/me:
+    get: { summary: Текущий пользователь, responses: { '200': { description: Пользователь } } }
+    patch: { summary: Изменить профиль, responses: { '200': { description: Профиль } } }
+  /users/me/skills:
+    put: { summary: Заменить навыки профиля, responses: { '200': { description: Профиль } } }
+  /skills:
+    get: { summary: Справочник навыков, responses: { '200': { description: Список навыков } } }
+  /projects:
+    get: { summary: Каталог проектов, responses: { '200': { description: Список проектов } } }
+    post: { summary: Создать проект, responses: { '201': { description: Проект } } }
+  /projects/{project_id}/my-swipe:
+    put: { summary: Свайп проекта текущим пользователем, parameters: [{ name: project_id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: Свайп и возможный мэтч } } }
+  /matches:
+    get: { summary: Список мэтчей, responses: { '200': { description: Список мэтчей } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
