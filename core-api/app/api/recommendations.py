@@ -42,6 +42,7 @@ def recommend_projects(
     memberships = select(ProjectMember.project_id).where(ProjectMember.user_id == user.id)
     query = select(Project).where(
         Project.status == "open",
+        Project.visibility == "published",
         Project.owner_id != user.id,
         Project.id.not_in(swiped),
         Project.id.not_in(memberships),
@@ -83,6 +84,7 @@ def recommend_candidates(
             User.is_active.is_(True),
             User.is_verified.is_(True),
             User.id != user.id,
+            Profile.visibility == "published",
             User.id.not_in(swiped),
             User.id.not_in(members),
         )

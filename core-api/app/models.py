@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +43,10 @@ class User(Base):
 
 class Profile(Base):
     __tablename__ = "profiles"
+    __table_args__ = (
+        CheckConstraint("visibility IN ('draft', 'published', 'hidden')", name="ck_profile_visibility"),
+        CheckConstraint("work_format IN ('remote', 'hybrid', 'onsite')", name="ck_profile_work_format"),
+    )
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     first_name: Mapped[str] = mapped_column(String(80), default="")
@@ -52,6 +57,8 @@ class Profile(Base):
     experience: Mapped[str] = mapped_column(Text, default="")
     interests: Mapped[str] = mapped_column(Text, default="")
     role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id", ondelete="SET NULL"))
+    visibility: Mapped[str] = mapped_column(String(20), default="draft", server_default="draft")
+    work_format: Mapped[str] = mapped_column(String(20), default="remote", server_default="remote")
 
 
 class Role(Base):
@@ -76,12 +83,42 @@ class ProfileSkill(Base):
 
 class Project(Base):
     __tablename__ = "projects"
-    __table_args__ = (CheckConstraint("status IN ('open', 'closed', 'blocked')", name="ck_project_status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('open', 'closed', 'blocked')", name="ck_project_status"),
+        CheckConstraint("visibility IN ('draft', 'published', 'hidden')", name="ck_project_visibility"),
+        CheckConstraint("kind IN ('project', 'company')", name="ck_project_kind"),
+        CheckConstraint("work_format IN ('remote', 'hybrid', 'onsite')", name="ck_project_work_format"),
+        CheckConstraint("commitment IN ('full_time', 'part_time', 'flexible')", name="ck_project_commitment"),
+        UniqueConstraint("owner_id", name="uq_project_owner"),
+    )
     id: Mapped[int] = mapped_column(ID, primary_key=True)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     title: Mapped[str] = mapped_column(String(150))
     description: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=now, onupdate=now, server_default=func.now()
+    )
+    visibility: Mapped[str] = mapped_column(String(20), default="draft", server_default="draft")
+    kind: Mapped[str] = mapped_column(String(20), default="project", server_default="project")
+    work_format: Mapped[str] = mapped_column(String(20), default="remote", server_default="remote")
+    commitment: Mapped[str] = mapped_column(String(20), default="flexible", server_default="flexible")
+    website_url: Mapped[str | None] = mapped_column(String(300))
+    logo_url: Mapped[str | None] = mapped_column(String(300))
+
+
+class SavedProfile(Base):
+    __tablename__ = "saved_profiles"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    target_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class SavedProject(Base):
+    __tablename__ = "saved_projects"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 

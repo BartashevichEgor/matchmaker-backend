@@ -39,6 +39,13 @@ def project_view(db, project):
         description=project.description,
         status=project.status,
         created_at=project.created_at,
+        kind=project.kind,
+        work_format=project.work_format,
+        commitment=project.commitment,
+        website_url=project.website_url,
+        logo_url=project.logo_url,
+        visibility=project.visibility,
+        updated_at=project.updated_at,
         skills=[
             s.SkillWeight(skill_id=p.skill_id, weight=p.weight)
             for p in db.scalars(
