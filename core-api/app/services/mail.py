@@ -1,21 +1,28 @@
 from uuid import uuid4
 
 from fastapi import HTTPException
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+from fastapi_mail import (
+    ConnectionConfig,
+    FastMail,
+    MessageSchema,
+    MessageType,
+    MultipartSubtypeEnum,
+)
 from loguru import logger
 
 from app.core.config import get_settings
+from app.services.mail_templates import password_reset_email, verification_email
 
 
-async def send_code(email: str, code: str, purpose: str):
+async def _send(email: str, subject: str, plain: str, html: str):
     settings = get_settings()
-    body = f"Matchmaker\nPurpose: {purpose}\nCode: {code}\nExpires in 10 minutes.\n"
     if settings.mail_mode == "outbox":
         settings.outbox_dir.mkdir(parents=True, exist_ok=True)
         path = settings.outbox_dir / f"{uuid4().hex}.txt"
-        path.write_text(f"To: {email}\n{body}", encoding="utf-8")
+        path.write_text(f"To: {email}\nSubject: {subject}\n{plain}", encoding="utf-8")
         logger.info("Development email saved to local outbox")
         return
+
     try:
         config = ConnectionConfig(
             MAIL_USERNAME=settings.mail_username,
@@ -30,12 +37,24 @@ async def send_code(email: str, code: str, purpose: str):
         )
         await FastMail(config).send_message(
             MessageSchema(
-                subject="Matchmaker verification code",
+                subject=subject,
                 recipients=[email],
-                body=body,
-                subtype=MessageType.plain,
+                body=html,
+                alternative_body=plain,
+                subtype=MessageType.html,
+                multipart_subtype=MultipartSubtypeEnum.alternative,
             )
         )
     except Exception:
         logger.error("Email delivery failed")
-        raise HTTPException(503, "Email unavailable. Please request a new code later.") from None
+        raise HTTPException(503, "Email unavailable. Please try again later.") from None
+
+
+async def send_verification_email(email: str, code: str, link_token: str):
+    message = verification_email(email, code, link_token)
+    await _send(email, message.subject, message.plain, message.html)
+
+
+async def send_password_reset_email(email: str, code: str):
+    message = password_reset_email(email, code)
+    await _send(email, message.subject, message.plain, message.html)

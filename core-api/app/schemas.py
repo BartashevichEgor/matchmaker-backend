@@ -51,6 +51,7 @@ class UsernameInput(Input):
 
 class Register(EmailInput, UsernameInput):
     password: Password
+    mode: Literal["developer", "project"]
     password_confirm: str | None = Field(
         default=None,
         max_length=128,
@@ -75,6 +76,10 @@ class Verify(EmailInput):
     code: str = Field(pattern=r"^\d{6}$")
 
 
+class VerifyLinkInput(EmailInput):
+    token: str = Field(min_length=32, max_length=512)
+
+
 class ResetPassword(Verify):
     password: Password
     password_confirm: str = Field(
@@ -93,11 +98,20 @@ class RefreshInput(Input):
     refresh_token: str = Field(min_length=1, max_length=4096)
 
 
-class Tokens(Output):
+class WebTokens(Output):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+
+
+class MobileTokens(WebTokens):
+    refresh_token: str
+    refresh_expires_in: int
+    session_id: str
+
+
+class Tokens(MobileTokens):
+    """Deprecated transport alias kept for existing clients."""
 
 
 class Message(Output):
@@ -111,6 +125,7 @@ class UserRead(Output):
     is_active: bool
     is_verified: bool
     is_admin: bool
+    onboarding_mode: Literal["developer", "project"]
     created_at: datetime
 
 
@@ -120,7 +135,18 @@ class FrontendUser(Output):
     id: str
     username: str
     email: str
+    onboarding_mode: Literal["developer", "project"] = Field(serialization_alias="onboardingMode")
     created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class SessionRead(Output):
+    id: str
+    created_at: datetime
+    last_used_at: datetime | None
+    expires_at: int
+    revoked_at: datetime | None
+    revocation_reason: str | None
+    user_agent: str | None
 
 
 class CatalogInput(Input):

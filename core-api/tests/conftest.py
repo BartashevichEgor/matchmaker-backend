@@ -2,6 +2,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -77,6 +78,16 @@ def read_code(email, purpose="verify"):
     raise AssertionError("No email was written")
 
 
+def read_link_token(email):
+    files = sorted(get_settings().outbox_dir.glob("*.txt"), key=lambda p: p.stat().st_mtime_ns, reverse=True)
+    for file in files:
+        body = file.read_text(encoding="utf-8")
+        if f"To: {email}\n" in body and "Verification link:" in body:
+            link = re.search(r"Verification link: (\S+)", body)[1]
+            return parse_qs(urlparse(link).fragment)["token"][0]
+    raise AssertionError("No verification link was written")
+
+
 @pytest.fixture
 def account(client):
     def create(email="student@example.com"):
@@ -89,6 +100,7 @@ def account(client):
                 "email": email,
                 "password": password,
                 "password_confirm": password,
+                "mode": "developer",
             },
         )
         assert result.status_code == 201, result.text

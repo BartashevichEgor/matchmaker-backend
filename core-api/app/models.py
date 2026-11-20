@@ -25,6 +25,9 @@ def now():
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("onboarding_mode IN ('developer', 'project')", name="ck_user_onboarding_mode"),
+    )
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True)
     email: Mapped[str] = mapped_column(String(254), unique=True)
@@ -33,6 +36,7 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     token_version: Mapped[int] = mapped_column(Integer, default=0)
+    onboarding_mode: Mapped[str] = mapped_column(String(20), default="developer")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
@@ -144,3 +148,9 @@ class RefreshSession(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     expires_at: Mapped[int] = mapped_column(BigInteger)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revocation_reason: Mapped[str | None] = mapped_column(String(50))
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    client_ip_hash: Mapped[str | None] = mapped_column(String(64))

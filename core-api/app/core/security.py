@@ -22,10 +22,14 @@ def token(user, kind: str, session_id: str | None = None):
         "ver": user.token_version,
         "iat": int(time.time()),
         "exp": int(time.time()) + lifetime,
-        "jti": session_id or uuid4().hex,
+        "jti": session_id if kind == "refresh" and session_id else uuid4().hex,
         "iss": settings.jwt_issuer,
         "aud": "matchmaker-api",
     }
+    if kind == "access":
+        if not session_id:
+            raise ValueError("Access tokens require a session id")
+        payload["sid"] = session_id
     return jwt.encode(payload, settings.jwt_secret.get_secret_value(), algorithm="HS256")
 
 
@@ -42,6 +46,8 @@ def decode_token(value: str, kind: str):
         )
         if data["type"] != kind or int(data["sub"]) <= 0:
             raise ValueError("Wrong token type")
+        if kind == "access" and not data.get("sid"):
+            raise ValueError("Missing session id")
         return data
     except (jwt.InvalidTokenError, ValueError, TypeError, KeyError):
         raise HTTPException(401, "Invalid or expired token", headers={"WWW-Authenticate": "Bearer"}) from None
