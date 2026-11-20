@@ -29,6 +29,10 @@ def test_simultaneous_project_creation_allows_only_one(client, account, db):
 def test_simultaneous_likes_create_one_match(client, account, db):
     _, owner_headers, _ = account("owner@example.com")
     candidate, headers, _ = account("candidate@example.com")
+    assert (
+        client.patch("/api/v1/profiles/me", headers=headers, json={"visibility": "published"}).status_code
+        == 200
+    )
     project = make_project(client, owner_headers)
     requests = [
         (f"/api/v1/projects/{project['id']}/my-swipe", headers),
