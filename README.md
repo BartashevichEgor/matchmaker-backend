@@ -1,56 +1,95 @@
-# Matchmaker
+# Matchmaker Backend
 
-Монорепозиторий учебного проекта Matchmaker: сервис поиска людей и проектов для команд.
+Backend-only repository for the Matchmaker API: FastAPI, PostgreSQL/SQLite,
+JWT authentication, profiles, projects, recommendations, swipes and matches.
+The web and mobile clients live in the separate `matchmaker-frontend`
+repository. The persisted chat service is planned for Backend Phase 4 and is
+not part of this cleanup baseline.
 
-| Каталог | Назначение |
-| --- | --- |
-| `core-api/` | FastAPI, PostgreSQL/SQLite, JWT, профили, навыки, проекты, мэтчи и Swagger. |
-| `frontend/` | React + TypeScript + Vite веб-клиент: регистрация, подтверждение e-mail, вход и защищённые экраны. |
-| `chat-service/` | Отдельный Node.js WebSocket-сервис группового чата с проверкой JWT и доступа к мэтчу через core API. |
+## Requirements
 
-## Быстрый локальный запуск
+- Python 3.13+
+- Docker Desktop for the Compose workflow
+- PowerShell on Windows for the examples below
 
-1. Создайте Python-окружение `.venv` в корне и установите `core-api/requirements-dev.txt`.
-2. Из корня выполните:
+## Local API
 
-```powershell
-.\start-demo.ps1
-```
-
-Скрипт запускает API в фоне и открывает Vite-клиент на `http://127.0.0.1:5173`.
-Если локальная PostgreSQL занята или недоступна, используйте:
+Run these commands from the repository root:
 
 ```powershell
-.\start-demo.ps1 -UseSqlite
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r core-api/requirements-dev.txt
+Copy-Item core-api/.env.example core-api/.env
 ```
 
-Этот режим создаёт отдельную локальную SQLite-базу и не затрагивает PostgreSQL-данные. Код подтверждения при `MAIL_MODE=outbox` сохраняется в `core-api/.local/outbox/`.
-
-API: `http://127.0.0.1:8000/` · Swagger: `http://127.0.0.1:8000/docs`.
-Пользовательские пароли, письма и базы в Git не включаются.
-
-### Групповой чат
-
-После запуска API выполните в отдельном PowerShell:
+Set a random `JWT_SECRET` of at least 32 characters in `core-api/.env`, then
+start the API from `core-api`:
 
 ```powershell
-cd chat-service
-npm install
-npm start
+Set-Location core-api
+..\.venv\Scripts\python.exe -m app.cli bootstrap
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Проверка сервиса: `http://127.0.0.1:8010/health`. Чат открывается в web-клиенте
-по маршруту `/chat/<id мэтча>`; соединение допускается только после проверки
-access JWT и членства пользователя в мэтче. Для быстрого локального запуска API
-и чата вместе можно использовать `./start-demo.ps1 -WithChat`.
+Without `DATABASE_URL`, local development uses SQLite. For PostgreSQL, Redis
+and SMTP/Mailpit settings, configure `core-api/.env` explicitly.
 
-## Проверка регистрации
+Useful endpoints:
 
-1. Откройте `http://127.0.0.1:5173/register` и создайте учётную запись.
-2. На странице подтверждения введите шестизначный код из самого нового файла в `core-api/.local/outbox/`.
-3. Если код потерялся, нажмите **«Отправить код повторно»**: новый код появится в той же папке.
-4. После подтверждения войдите с тем же e-mail и паролем. Успешный вход открывает каталог по адресу `http://127.0.0.1:5173/feed`.
+- API metadata: `http://127.0.0.1:8000/`
+- Swagger: `http://127.0.0.1:8000/docs`
+- OpenAPI: `http://127.0.0.1:8000/openapi.json`
+- Liveness: `http://127.0.0.1:8000/ping`
+- Readiness: `http://127.0.0.1:8000/health`
 
-## Документация
+## Docker Compose
 
-Документация ведётся как код: [оглавление](docs/README.md), [развёртывание](docs/deployment.md), [БД](docs/database.md), [архитектурные решения](docs/adr/), [C4](docs/c4/), [трассируемость](docs/requirements/traceability.md), [план релизов](docs/release-plan.md) и [OpenAPI](api/openapi.yaml). Правила работы с ветками и PR — в [CONTRIBUTING.md](CONTRIBUTING.md).
+Copy `.env.example` to `.env` at the repository root and replace the example
+database password and JWT secret with local-only random values:
+
+```powershell
+Copy-Item .env.example .env
+docker compose -f deploy/docker-compose.yml up --build -d
+docker compose -f deploy/docker-compose.yml ps
+docker compose -f deploy/docker-compose.yml logs backend
+docker compose -f deploy/docker-compose.yml down
+```
+
+Compose starts PostgreSQL and FastAPI. `docker compose down -v` also deletes
+the database volume; use it only when that data is no longer needed.
+
+## Database and migrations
+
+From `core-api`:
+
+```powershell
+..\.venv\Scripts\python.exe -m alembic upgrade head
+..\.venv\Scripts\python.exe -m alembic check
+```
+
+Read [database documentation](docs/database.md) before changing the schema.
+Every schema change requires an Alembic migration; do not reset a shared
+database.
+
+## Tests and lint
+
+From `core-api`:
+
+```powershell
+..\.venv\Scripts\python.exe -m pytest -q
+..\.venv\Scripts\python.exe -m ruff check .
+..\.venv\Scripts\python.exe -m ruff format --check .
+```
+
+The test suite uses isolated SQLite by default. PostgreSQL-specific checks are
+available through `python -m scripts.test_postgres` when a test database is
+configured.
+
+## Documentation
+
+- [API contract](core-api/docs/api.md)
+- [Database](docs/database.md)
+- [Deployment](docs/deployment.md)
+- [Documentation index](docs/README.md)
+- [Backend phase plans](docs/plans/)
+- [Contributing](CONTRIBUTING.md)

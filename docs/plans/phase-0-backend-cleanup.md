@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `backend/` a backend-only repository by removing the imported client, launcher scripts, personal reports and static demo while preserving API, migrations, tests, Compose and technical documentation.
+**Goal:** Make `backend/` a backend-only repository by removing the imported client, premature chat demo, launcher scripts, personal reports and static demo while preserving API, migrations, tests, Compose and technical documentation.
 
 **Architecture:** `backend/` remains the FastAPI repository; `frontend/` remains the standalone client repository and is read-only during this phase. Cleanup is performed on a branch based on the latest backend remote commit, with no history rewrite.
 
@@ -16,6 +16,7 @@
 - Do not delete backend API code, migrations, tests, Compose services, CI or technical API/database/deployment docs.
 - Keep `core-api/scripts/render_erd.ps1`.
 - Keep the `/auth/session` response adapter `frontend_user`.
+- Remove the premature `chat-service/` implementation from `origin/main`; recreate the real persisted chat only in Phase 4.
 - Do not reset, force-push, rewrite history or delete secrets.
 
 ## Review Focus
@@ -23,7 +24,7 @@
 - Cleanup starts from the latest `backend/origin/main`.
 - `frontend/` has identical clean status before and after cleanup.
 - `/`, `/docs`, `/openapi.json`, `/health`, `/ping`, migrations and tests still work.
-- Retained files contain no references to deleted launchers or embedded frontend code.
+- Retained files contain no references to deleted launchers, embedded frontend code or the removed demo chat startup path.
 - The backend README remains sufficient for direct and Compose-based setup.
 
 ---
@@ -51,13 +52,13 @@
 - Delete: `backend/start-demo.ps1`
 - Delete: `backend/start-background.ps1`
 - Delete: `backend/start-local-db.ps1`
-- Delete: `backend/chat-service/README.md`
+- Delete: `backend/chat-service/`
 
 **Interfaces:**
 - Consumes: backend Compose and direct core-api commands.
 - Produces: no embedded client source, no developer launcher scripts and no placeholder chat README.
 
-- [ ] Step 1: Delete only the six listed backend targets; never use a workspace-wide recursive delete.
+- [ ] Step 1: Delete only the listed backend targets; never use a workspace-wide recursive delete.
 - [ ] Step 2: Verify `Test-Path backend/frontend`, `Test-Path frontend/web` and `Test-Path frontend/ios` return `False`, `True`, `True` respectively.
 - [ ] Step 3: Verify `git -C backend status --short` lists only the intended deletions.
 - [ ] Step 4: Commit `chore: remove embedded frontend and launcher scripts`.
@@ -74,6 +75,8 @@
 - Delete: `backend/core-api/docs/delivery.md`
 - Modify: `backend/README.md`
 - Modify: `backend/core-api/README.md`
+- Modify: `backend/docs/deployment.md`
+- Modify: `backend/docs/requirements/traceability.md`
 
 **Interfaces:**
 - Consumes: `backend/docker-compose.yml`, requirements files, `alembic.ini`, API/database/deployment docs.
@@ -82,7 +85,7 @@
 - [ ] Step 1: Delete only personal/reporting/integration documents listed above.
 - [ ] Step 2: Rewrite `backend/README.md` with exact setup commands from the backend root and links to retained technical docs.
 - [ ] Step 3: Rewrite `backend/core-api/README.md` without references to deleted launchers, static demo or embedded frontend.
-- [ ] Step 4: Run `rg -n "frontend/|start-demo|start-background|start-local-db|start\.ps1|egor-|report-drafts|sprint-2|figma-auth|frontend-integration|delivery\.md" backend` and remove stale retained references.
+- [ ] Step 4: Run `rg -n "frontend/|start-demo|start-background|start-local-db|start\.ps1|egor-|report-drafts|sprint-2|figma-auth|frontend-integration|delivery\.md|chat-service" backend` and remove stale current-state references; future Phase 4 contract text may remain only when it does not claim the demo service is present.
 - [ ] Step 5: Commit `docs: simplify backend-only documentation`.
 
 ### Task 4: Remove the backend static demo page
@@ -99,7 +102,7 @@
 - Consumes: FastAPI app and existing health/OpenAPI tests.
 - Produces: `GET /` JSON `{ "service": "matchmaker-api", "docs": "/docs", "health": "/health" }`; `/docs`, `/openapi.json`, `/health` and `/ping` remain unchanged.
 
-- [ ] Step 1: Add a failing root endpoint test asserting the exact JSON response and HTTP 200.
+- [ ] Step 1: Add a failing root endpoint test asserting the exact JSON response `{ "service": "matchmaker-api", "docs": "/docs", "health": "/health" }` and HTTP 200.
 - [ ] Step 2: Remove the demo FileResponse/static mount while preserving Swagger assets.
 - [ ] Step 3: Run `backend/.venv/Scripts/pytest.exe backend/core-api/tests/test_matching.py -q` and require root, health and OpenAPI tests to pass.
 - [ ] Step 4: Commit `refactor: remove backend demo page`.

@@ -7,7 +7,7 @@
 | US-03 Редактирование профиля | BE-010, FE-032 | `app/api/profiles.py`, `ProfilePage.tsx` | `test_matching.py`, `ProfilePage.test.tsx` |
 | US-04 Каталог проектов | BE-006, FE-030 | `app/api/projects.py`, `CatalogPage.tsx` | `test_matching.py`, `profile-and-catalog-pages.test.tsx` |
 | US-05 Свайп и мэтч | BE-007 | `app/api/swipes.py` | `test_matching.py` |
-| US-06 Групповой чат | BE-009, FE-031 | `chat-service/`, `ChatPage.tsx` | `chat-service/test`, router test |
+| US-06 Групповой чат | BE-009, FE-031 | Phase 4 plan; implementation not started after cleanup | Phase 4 backend/web tests |
 | NFR-01 Безопасность JWT | BE-004 | `app/core/security.py` | `test_auth.py` |
 | NFR-02 Проверяемость | TE-005 | CI, pytest, Vitest | workflow и команды README |
 | NFR-03 Воспроизводимый запуск | EN-003 | `deploy/docker-compose.yml` | `/health`, compose config |

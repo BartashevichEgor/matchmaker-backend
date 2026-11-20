@@ -9,8 +9,8 @@
 ## Проверка
 
 - [ ] `pytest core-api/tests -q`
-- [ ] `npm --prefix frontend/web test -- --run`
-- [ ] `npm --prefix frontend/web run build`
+- [ ] `ruff check core-api`
+- [ ] `ruff format --check core-api`
 - [ ] Проверен пользовательский сценарий или указан способ проверки
 
 ## Checklist Definition of Done

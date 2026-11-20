@@ -161,10 +161,17 @@ def test_health_openapi_and_local_swagger(client):
     assert health.status_code == 200 and health.json()["status"] == "UP"
     assert health.json()["database"] in ("sqlite", "postgresql")
     assert client.get("/api/health").json()["status"] == "UP"
-    assert client.get("/").status_code == 200
+    assert client.get("/").json() == {
+        "service": "matchmaker-api",
+        "docs": "/docs",
+        "health": "/health",
+    }
     docs = client.get("/docs")
-    assert docs.status_code == 200 and "/swagger-assets/swagger-ui-bundle.js" in docs.text
+    assert docs.status_code == 200
+    assert "/swagger-assets/swagger-ui-bundle.js" in docs.text
+    assert "/swagger-assets/favicon-32x32.png" in docs.text
     assert client.get("/swagger-assets/swagger-ui-bundle.js").status_code == 200
+    assert client.get("/swagger-assets/favicon-32x32.png").status_code == 200
     spec = client.get("/openapi.json").json()
     assert "/api/v1/auth/register" in spec["paths"]
     assert "/api/v1/projects/{project_id}/my-swipe" in spec["paths"]
@@ -174,5 +181,7 @@ def test_profile_compatibility_aliases(client, account):
     _, headers, _ = account("aliases@example.com")
     updated = client.patch("/api/v1/users/me", headers=headers, json={"first_name": "Егор"})
     assert updated.status_code == 200 and updated.json()["first_name"] == "Егор"
-    skills = client.put("/api/v1/users/me/skills", headers=headers, json={"skills": [{"skill_id": 1, "level": 4}]})
+    skills = client.put(
+        "/api/v1/users/me/skills", headers=headers, json={"skills": [{"skill_id": 1, "level": 4}]}
+    )
     assert skills.status_code == 200 and skills.json()["skills"] == [{"skill_id": 1, "level": 4}]
