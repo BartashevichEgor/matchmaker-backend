@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
-from sqlalchemy import select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app import schemas as s
@@ -18,6 +18,8 @@ from app.models import EmailCode, Profile, RefreshSession, User
 from app.services.mail import send_password_reset_email, send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+CSRF_COOKIE_NAME = "matchmaker_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
 
 
 def throttle(request: Request, action: str, email: str):
@@ -91,6 +93,12 @@ def issue_tokens(db, user, request: Request):
     settings = get_settings()
     session_id = uuid4().hex
     user_agent, client_ip_hash = _client_metadata(request)
+    db.execute(
+        delete(RefreshSession).where(
+            RefreshSession.user_id == user.id,
+            or_(RefreshSession.revoked.is_(True), RefreshSession.expires_at <= int(time.time())),
+        )
+    )
     db.add(
         RefreshSession(
             id=session_id,
@@ -183,6 +191,7 @@ def _web_tokens(tokens: s.MobileTokens):
         access_token=tokens.access_token,
         token_type=tokens.token_type,
         expires_in=tokens.expires_in,
+        csrf_token=secrets.token_urlsafe(32),
     )
 
 
@@ -210,11 +219,42 @@ def _clear_refresh_cookie(response: Response):
     )
 
 
+def _set_csrf_cookie(response: Response, csrf_token: str):
+    settings = get_settings()
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        max_age=settings.refresh_days * 86400,
+        httponly=False,
+        secure=settings.refresh_cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+        path="/api/v1/auth/web",
+    )
+
+
+def _clear_csrf_cookie(response: Response):
+    settings = get_settings()
+    response.delete_cookie(
+        key=CSRF_COOKIE_NAME,
+        httponly=False,
+        secure=settings.refresh_cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+        path="/api/v1/auth/web",
+    )
+
+
 def _check_web_origin(request: Request):
     origin = request.headers.get("origin")
     allowed = {item.rstrip("/") for item in get_settings().cors_origins}
     if not origin or origin.rstrip("/") not in allowed:
         raise HTTPException(403, "Origin is not allowed")
+
+
+def _check_web_csrf(request: Request):
+    cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    header = request.headers.get(CSRF_HEADER_NAME)
+    if not cookie or not header or not hmac.compare_digest(cookie, header):
+        raise HTTPException(403, "CSRF token is missing or invalid")
 
 
 def frontend_user(user):
@@ -304,7 +344,9 @@ def web_login(data: s.Login, request: Request, response: Response, db: Db):
     result = issue_tokens(db, user, request)
     db.commit()
     _set_refresh_cookie(response, result.refresh_token)
-    return _web_tokens(result)
+    web_tokens = _web_tokens(result)
+    _set_csrf_cookie(response, web_tokens.csrf_token)
+    return web_tokens
 
 
 @router.post("/refresh", response_model=s.Tokens)
@@ -317,13 +359,16 @@ def mobile_refresh(data: s.RefreshInput, db: Db, request: Request):
 @router.post("/web/refresh", response_model=s.WebTokens)
 def web_refresh(request: Request, response: Response, db: Db):
     _check_web_origin(request)
+    _check_web_csrf(request)
     limit(f"refresh:{request.client.host if request.client else 'unknown'}", 60, 300)
     value = request.cookies.get(get_settings().refresh_cookie_name)
     if not value:
         raise HTTPException(401, "Refresh cookie is missing")
     result = rotate_refresh(db, value, request)
     _set_refresh_cookie(response, result.refresh_token)
-    return _web_tokens(result)
+    web_tokens = _web_tokens(result)
+    _set_csrf_cookie(response, web_tokens.csrf_token)
+    return web_tokens
 
 
 @router.post("/mobile/logout", response_model=s.Message)
@@ -335,6 +380,7 @@ def mobile_logout(data: s.RefreshInput, db: Db):
 @router.post("/web/logout", response_model=s.Message)
 def web_logout(request: Request, response: Response, db: Db):
     _check_web_origin(request)
+    _check_web_csrf(request)
     value = request.cookies.get(get_settings().refresh_cookie_name)
     if value:
         try:
@@ -342,6 +388,7 @@ def web_logout(request: Request, response: Response, db: Db):
         except HTTPException:
             db.rollback()
     _clear_refresh_cookie(response)
+    _clear_csrf_cookie(response)
     return s.Message(message="Session ended.")
 
 
@@ -350,6 +397,7 @@ def web_logout(request: Request, response: Response, db: Db):
 def logout_all(user: CurrentUser, db: Db, response: Response):
     revoke_all_sessions(db, user, "logout_all")
     _clear_refresh_cookie(response)
+    _clear_csrf_cookie(response)
     return s.Message(message="All sessions ended.")
 
 
@@ -357,7 +405,11 @@ def logout_all(user: CurrentUser, db: Db, response: Response):
 def sessions(user: CurrentUser, db: Db):
     return db.scalars(
         select(RefreshSession)
-        .where(RefreshSession.user_id == user.id)
+        .where(
+            RefreshSession.user_id == user.id,
+            RefreshSession.revoked.is_(False),
+            RefreshSession.expires_at > int(time.time()),
+        )
         .order_by(RefreshSession.created_at.desc())
         .limit(100)
     ).all()

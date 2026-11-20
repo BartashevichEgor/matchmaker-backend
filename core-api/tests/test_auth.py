@@ -3,11 +3,23 @@ import time
 import jwt
 from sqlalchemy import select
 
+from app.api import auth as auth_api
 from app.core.config import get_settings
+from app.core.limits import _local
 from app.models import EmailCode, RefreshSession, User
 from tests.conftest import read_code, read_link_token
 
 PASSWORD = "ValidPassword123!"
+
+
+def test_request_body_limit_rejects_oversized_payload(client):
+    settings = get_settings()
+    response = client.post(
+        "/api/v1/auth/register",
+        content=b"{" + b"x" * settings.max_request_body_bytes + b"}",
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 413
 
 
 def test_registration_validation_and_no_password_leak(client):
@@ -108,6 +120,23 @@ def test_verification_single_use_and_limits(client, db):
     assert db.scalar(select(EmailCode)) is None
 
 
+def test_verification_rejects_after_five_failed_attempts(client):
+    email = "attempts@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"username": "attempts-user", "email": email, "password": PASSWORD, "mode": "developer"},
+    )
+    code = read_code(email)
+    wrong_code = "000000" if code != "000000" else "111111"
+    for _ in range(5):
+        assert (
+            client.post("/api/v1/auth/verify-email", json={"email": email, "code": wrong_code}).status_code
+            == 400
+        )
+    _local.clear()
+    assert client.post("/api/v1/auth/verify-email", json={"email": email, "code": code}).status_code == 400
+
+
 def test_expired_verification(client, db):
     email = "expired@example.com"
     client.post(
@@ -143,6 +172,48 @@ def test_verification_link_is_single_use(client, db):
     assert db.scalar(select(EmailCode)) is None
 
 
+def test_verification_link_expiry(client, db):
+    email = "expired-link@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"username": "expired-link", "email": email, "password": PASSWORD, "mode": "developer"},
+    )
+    record = db.scalar(select(EmailCode).where(EmailCode.purpose == "verify_link"))
+    record.expires_at = int(time.time()) - 1
+    db.commit()
+    assert (
+        client.post(
+            "/api/v1/auth/verify-email-link", json={"email": email, "token": read_link_token(email)}
+        ).status_code
+        == 400
+    )
+
+
+def test_resend_replaces_verification_credentials(client, monkeypatch):
+    email = "resend@example.com"
+    codes = iter((123456, 654321))
+    monkeypatch.setattr(auth_api.secrets, "randbelow", lambda _: next(codes))
+    client.post(
+        "/api/v1/auth/register",
+        json={"username": "resend-user", "email": email, "password": PASSWORD, "mode": "developer"},
+    )
+    old_code = read_code(email)
+    old_link = read_link_token(email)
+    assert client.post("/api/v1/auth/resend-verification", json={"email": email}).status_code == 200
+    new_code = read_code(email)
+    assert new_code != old_code
+    assert (
+        client.post("/api/v1/auth/verify-email", json={"email": email, "code": old_code}).status_code == 400
+    )
+    assert (
+        client.post("/api/v1/auth/verify-email-link", json={"email": email, "token": old_link}).status_code
+        == 400
+    )
+    assert (
+        client.post("/api/v1/auth/verify-email", json={"email": email, "code": new_code}).status_code == 200
+    )
+
+
 def test_web_cookie_login_refresh_sessions_and_logout(client, account, db):
     user, _, _ = account("web-cookie@example.com")
     origin = {"Origin": "http://localhost:5173"}
@@ -161,6 +232,8 @@ def test_web_cookie_login_refresh_sessions_and_logout(client, account, db):
     assert login.status_code == 200
     assert "refresh_token" not in login.json()
     assert login.cookies.get("matchmaker_refresh")
+    csrf = login.json()["csrf_token"]
+    assert csrf == login.cookies.get(auth_api.CSRF_COOKIE_NAME)
     access = login.json()["access_token"]
     payload = jwt.decode(
         access,
@@ -175,12 +248,32 @@ def test_web_cookie_login_refresh_sessions_and_logout(client, account, db):
     assert sessions.status_code == 200
     assert any(item["id"] == payload["sid"] for item in sessions.json())
 
-    refreshed = client.post("/api/v1/auth/web/refresh", headers=origin)
+    assert client.post("/api/v1/auth/web/refresh", headers=origin).status_code == 403
+    assert (
+        client.post(
+            "/api/v1/auth/web/refresh", headers={**origin, auth_api.CSRF_HEADER_NAME: "wrong-token"}
+        ).status_code
+        == 403
+    )
+    refreshed = client.post("/api/v1/auth/web/refresh", headers={**origin, auth_api.CSRF_HEADER_NAME: csrf})
     assert refreshed.status_code == 200
     assert "refresh_token" not in refreshed.json()
-    assert db.scalar(select(RefreshSession).where(RefreshSession.id == payload["sid"])).revoked
+    assert db.scalar(select(RefreshSession).where(RefreshSession.id == payload["sid"])) is None
+    next_csrf = refreshed.json()["csrf_token"]
+    assert next_csrf == refreshed.cookies.get(auth_api.CSRF_COOKIE_NAME)
+    active_sessions = client.get(
+        "/api/v1/auth/sessions", headers={"Authorization": f"Bearer {refreshed.json()['access_token']}"}
+    )
+    assert active_sessions.status_code == 200
+    assert all(item["id"] != payload["sid"] for item in active_sessions.json())
 
-    logout = client.post("/api/v1/auth/web/logout", headers=origin)
+    assert (
+        client.post(
+            "/api/v1/auth/web/logout", headers={**origin, auth_api.CSRF_HEADER_NAME: csrf}
+        ).status_code
+        == 403
+    )
+    logout = client.post("/api/v1/auth/web/logout", headers={**origin, auth_api.CSRF_HEADER_NAME: next_csrf})
     assert logout.status_code == 200
     assert logout.cookies.get("matchmaker_refresh") is None
 
@@ -237,6 +330,39 @@ def test_expired_access_token(client, account):
     payload["exp"] = int(time.time()) - 1
     expired = jwt.encode(payload, settings.jwt_secret.get_secret_value(), algorithm="HS256")
     assert client.get("/api/v1/users/me", headers={"Authorization": "Bearer " + expired}).status_code == 401
+
+
+def test_access_token_rejected_after_refresh_session_expiry(client, account, db):
+    _, headers, tokens = account()
+    session = db.get(RefreshSession, tokens["session_id"])
+    session.expires_at = int(time.time()) - 1
+    db.commit()
+    assert client.get("/api/v1/users/me", headers=headers).status_code == 401
+
+
+def test_smtp_failure_keeps_account_for_resend(client, db, monkeypatch):
+    async def fail_send(self, message):
+        raise OSError("smtp unavailable")
+
+    settings = get_settings()
+    original_mode = settings.mail_mode
+    settings.mail_mode = "smtp"
+    monkeypatch.setattr("app.services.mail.FastMail.send_message", fail_send)
+    try:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "smtp-failure",
+                "email": "smtp-failure@example.com",
+                "password": PASSWORD,
+                "mode": "developer",
+            },
+        )
+    finally:
+        settings.mail_mode = original_mode
+    assert response.status_code == 503
+    user = db.scalar(select(User).where(User.email == "smtp-failure@example.com"))
+    assert user and not user.is_verified
 
 
 def test_reset_revokes_sessions(client, account):

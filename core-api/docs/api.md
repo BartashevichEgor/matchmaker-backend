@@ -11,12 +11,12 @@ API принимает JSON. Для защищённых методов пере
 | POST | /auth/verify-email | Гость | 200; 400 при неверном/истёкшем коде |
 | POST | /auth/resend-verification | Гость | Обобщённое сообщение без раскрытия существования аккаунта |
 | POST | /auth/login, /auth/mobile/login | Гость | access и refresh tokens для мобильного/legacy транспорта |
-| POST | /auth/web/login | Гость + Origin | access token; refresh token — HttpOnly cookie |
+| POST | /auth/web/login | Гость + Origin | access token + CSRF token; refresh token — HttpOnly cookie |
 | POST | /auth/refresh, /auth/mobile/refresh | Refresh JWT | Новая пара токенов; старый refresh одноразовый |
-| POST | /auth/web/refresh | Refresh cookie + Origin | Новый access token и rotated HttpOnly cookie |
+| POST | /auth/web/refresh | Refresh cookie + Origin + `X-CSRF-Token` | Новый access token, CSRF token и rotated HttpOnly cookie |
 | POST | /auth/logout, /auth/web/logout-all | Access JWT | Отзыв всех сессий текущего пользователя |
 | POST | /auth/mobile/logout | Refresh JWT | Отзыв мобильной сессии |
-| POST | /auth/web/logout | Refresh cookie + Origin | Отзыв web-сессии и очистка cookie |
+| POST | /auth/web/logout | Refresh cookie + Origin + `X-CSRF-Token` | Отзыв web-сессии и очистка cookie |
 | GET | /auth/sessions | Access JWT | Список сессий без refresh-токенов |
 | DELETE | /auth/sessions/{session_id} | Access JWT | Отзыв одной своей сессии |
 | POST | /auth/forgot-password | Гость | Запрос кода восстановления |
@@ -75,7 +75,7 @@ API принимает JSON. Для защищённых методов пере
 
 ## Авторизация и почта
 
-`username` — обязательное публичное имя для каталога профилей: 1–50 символов после обрезки краевых пробелов, не может быть пустым и гарантированно уникально. `mode` — обязательный `developer` или `project`. Пароль: 8–128 символов. React проверяет повтор пароля до отправки регистрации; остальные клиенты могут передать необязательное поле `password_confirm` или `confirmPassword`, и сервер сверит его с паролем. Email нормализуется. Access JWT действует 15 минут, refresh — 7 дней; параметры конфигурируются. Данные JWT подписаны HS256, проверяются issuer/audience/type/exp/token_version/session. Web refresh хранится только в HttpOnly cookie и требует разрешённый Origin; мобильный transport получает refresh token в JSON. Logout и reset отзывают сессии. Код: 6 цифр, срок 10 минут, не более 5 неверных попыток. Verification link — opaque token, single-use, срок 24 часа; в письме он передаётся во fragment URL. Повторная отправка заменяет предыдущие verification credentials. SMTP-сбой даёт 503; уже созданный аккаунт можно подтвердить после повторного запроса.
+`username` — обязательное публичное имя для каталога профилей: 1–50 символов после обрезки краевых пробелов, не может быть пустым и гарантированно уникально. `mode` — обязательный `developer` или `project`. Пароль: 8–128 символов. React проверяет повтор пароля до отправки регистрации; остальные клиенты могут передать необязательное поле `password_confirm` или `confirmPassword`, и сервер сверит его с паролем. Email нормализуется. Access JWT действует 15 минут, refresh — 7 дней; параметры конфигурируются. Данные JWT подписаны HS256, проверяются issuer/audience/type/exp/token_version/session. Web refresh хранится только в HttpOnly cookie и требует разрешённый Origin и совпадающий `X-CSRF-Token` с cookie `matchmaker_csrf`; web login и refresh возвращают этот токен в JSON. Мобильный transport получает refresh token в JSON. Logout и reset отзывают сессии. Код: 6 цифр, срок 10 минут, не более 5 неверных попыток. Verification link — opaque token, single-use, срок 24 часа; в письме он передаётся во fragment URL. Повторная отправка заменяет предыдущие verification credentials. SMTP-сбой даёт 503; уже созданный аккаунт можно подтвердить после повторного запроса.
 
 Для действий авторизации установлены отдельные лимиты по email и IP. Redis обеспечивает общий лимит для нескольких процессов. Локальный режим без Redis предназначен для одного процесса. За reverse proxy доверяйте только IP своего proxy, иначе клиент может подделать адрес для лимитов.
 

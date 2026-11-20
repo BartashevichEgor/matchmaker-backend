@@ -14,6 +14,7 @@ from swagger_ui_bundle import swagger_ui_path
 
 from app.api import auth, catalogs, health, profiles, projects, recommendations, swipes
 from app.core.config import ROOT, get_settings
+from app.core.request_limits import RequestBodyLimitMiddleware
 
 settings = get_settings()
 docs_enabled = settings.environment != "production"
@@ -46,7 +47,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
 app.include_router(health.router)
 for module in (auth, profiles, catalogs, projects, recommendations, swipes):
@@ -107,3 +108,7 @@ async def log_request(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     return response
+
+
+# Keep this outermost so oversized chunked bodies never reach the request logger or routes.
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
