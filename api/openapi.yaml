@@ -2,32 +2,334 @@ openapi: 3.0.3
 info:
   title: Matchmaker API
   version: 0.4.0
-  description: Версионируемая копия ключевого контракта. Runtime-спецификация доступна на /openapi.json.
+  description: >-
+    Краткая версия контракта REST API. Полная схема с типами, ограничениями и
+    кодами ошибок доступна в runtime по адресу /openapi.json.
 servers:
   - url: /api/v1
 paths:
   /auth/register:
     post:
       summary: Регистрация пользователя
-      responses: { '201': { description: Код подтверждения отправлен }, '409': { description: Email или username занят } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Register' }
+      responses:
+        '201': { description: Код подтверждения отправлен }
+        '409': { description: Email или username уже заняты }
+        '422': { description: Ошибка валидации }
+  /auth/verify-email:
+    post:
+      summary: Подтвердить email шестизначным кодом
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmail' }
+      responses:
+        '200': { description: Email подтверждён }
+        '400': { description: Неверный или истёкший код }
+  /auth/resend-verification:
+    post:
+      summary: Повторно отправить код подтверждения
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailInput' }
+      responses:
+        '200': { description: Обобщённый ответ без раскрытия существования аккаунта }
   /auth/login:
     post:
       summary: Вход и выдача JWT
-      responses: { '200': { description: Access и refresh token }, '401': { description: Неверные данные } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Login' }
+      responses:
+        '200':
+          description: Access и refresh token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tokens' }
+        '401': { description: Неверные данные }
+        '403': { description: Email не подтверждён }
+  /auth/session:
+    get:
+      summary: Получить текущего пользователя для AuthService frontend
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Текущий пользователь, поле createdAt предназначено для React-клиента }
+        '401': { description: Access JWT недействителен }
+  /auth/refresh:
+    post:
+      summary: Ротация refresh JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Refresh' }
+      responses:
+        '200': { description: Новая пара токенов }
+        '401': { description: Refresh JWT недействителен }
+  /auth/logout:
+    post:
+      summary: Отозвать сессии текущего пользователя
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Сессии отозваны }
+  /auth/forgot-password:
+    post:
+      summary: Запросить код восстановления пароля
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailInput' }
+      responses:
+        '200': { description: Обобщённый ответ }
+  /auth/reset-password:
+    post:
+      summary: Установить новый пароль по коду
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPassword' }
+      responses:
+        '200': { description: Пароль изменён }
+        '400': { description: Неверный или истёкший код }
   /users/me:
-    get: { summary: Текущий пользователь, responses: { '200': { description: Пользователь } } }
-    patch: { summary: Изменить профиль, responses: { '200': { description: Профиль } } }
-  /users/me/skills:
-    put: { summary: Заменить навыки профиля, responses: { '200': { description: Профиль } } }
+    get:
+      summary: Получить данные текущего пользователя
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Приватные данные аккаунта } }
+    patch:
+      summary: Обновить профиль текущего пользователя (совместимый alias)
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Обновлённый профиль } }
+  /profiles/me:
+    get:
+      summary: Получить профиль текущего пользователя
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Профиль с навыками } }
+    patch:
+      summary: Обновить поля профиля
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Обновлённый профиль } }
+  /profiles/me/skills:
+    put:
+      summary: Полностью заменить навыки профиля
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileSkills' }
+      responses: { '200': { description: Обновлённый профиль } }
+  /profiles/{user_id}:
+    get:
+      summary: Получить публичный профиль
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200': { description: Публичная анкета без email и даты рождения }
+        '404': { description: Профиль не найден }
   /skills:
-    get: { summary: Справочник навыков, responses: { '200': { description: Список навыков } } }
+    get:
+      summary: Справочник навыков
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses: { '200': { description: Список навыков } }
+  /roles:
+    get:
+      summary: Справочник ролей
+      responses: { '200': { description: Список ролей } }
   /projects:
-    get: { summary: Каталог проектов, responses: { '200': { description: Список проектов } } }
-    post: { summary: Создать проект, responses: { '201': { description: Проект } } }
+    get:
+      summary: Каталог открытых проектов
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: skill_id, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: role_id, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: mine, in: query, schema: { type: boolean, default: false } }
+      responses: { '200': { description: Список проектов } }
+    post:
+      summary: Создать проект
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectInput' }
+      responses:
+        '201': { description: Созданный проект }
+        '422': { description: Ошибка валидации }
+  /projects/{project_id}:
+    get:
+      summary: Получить проект
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProjectId' }]
+      responses: { '200': { description: Проект } }
+    put:
+      summary: Изменить проект владельца
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProjectId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectInput' }
+      responses: { '200': { description: Обновлённый проект } }
+  /projects/{project_id}/status:
+    patch:
+      summary: Изменить статус проекта владельца
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProjectId' }]
+      responses: { '200': { description: Проект со статусом open или closed } }
+  /recommendations/projects:
+    get:
+      summary: Рекомендованные проекты
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Проекты с оценкой score } }
+  /projects/{project_id}/recommendations/candidates:
+    get:
+      summary: Рекомендованные кандидаты проекта
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProjectId' }]
+      responses: { '200': { description: Анкеты с оценкой score } }
   /projects/{project_id}/my-swipe:
-    put: { summary: Свайп проекта текущим пользователем, parameters: [{ name: project_id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: Свайп и возможный мэтч } } }
+    put:
+      summary: Свайп проекта текущим пользователем
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProjectId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Swipe' }
+      responses: { '200': { description: Свайп и возможный match } }
+  /projects/{project_id}/candidates/{candidate_id}/swipe:
+    put:
+      summary: Свайп кандидата владельцем проекта
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ProjectId' }
+        - { name: candidate_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Swipe' }
+      responses: { '200': { description: Свайп и возможный match } }
   /matches:
-    get: { summary: Список мэтчей, responses: { '200': { description: Список мэтчей } } }
+    get:
+      summary: Список совпадений текущего пользователя
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Список matches } }
+  /matches/{match_id}/chat-access:
+    get:
+      summary: Проверить доступ к комнате чата
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: match_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses: { '200': { description: Match с room_key } }
+  /matches/{match_id}/join:
+    post:
+      summary: Вступить в команду после совпадения
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: match_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses: { '200': { description: Подтверждение вступления } }
 components:
+  parameters:
+    ProjectId:
+      name: project_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    EmailInput:
+      type: object
+      required: [email]
+      properties: { email: { type: string, format: email } }
+    Register:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 50 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128, format: password }
+    Login:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    VerifyEmail:
+      allOf:
+        - { $ref: '#/components/schemas/EmailInput' }
+        - type: object
+          required: [code]
+          properties: { code: { type: string, pattern: '^\\d{6}$' } }
+    Refresh:
+      type: object
+      required: [refresh_token]
+      properties: { refresh_token: { type: string } }
+    ResetPassword:
+      allOf:
+        - { $ref: '#/components/schemas/VerifyEmail' }
+        - type: object
+          required: [password, password_confirm]
+          properties:
+            password: { type: string, minLength: 8, maxLength: 128, format: password }
+            password_confirm: { type: string, format: password }
+    Tokens:
+      type: object
+      required: [access_token, refresh_token, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, default: bearer }
+        expires_in: { type: integer }
+    ProfileSkills:
+      type: object
+      required: [skills]
+      properties:
+        skills:
+          type: array
+          items:
+            type: object
+            required: [skill_id, level]
+            properties:
+              skill_id: { type: integer, minimum: 1 }
+              level: { type: integer, minimum: 1, maximum: 5 }
+    ProjectInput:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 150 }
+        description: { type: string, minLength: 10, maxLength: 10000 }
+        skills:
+          type: array
+          items:
+            type: object
+            required: [skill_id, weight]
+            properties:
+              skill_id: { type: integer, minimum: 1 }
+              weight: { type: integer, minimum: 1, maximum: 5 }
+        role_ids: { type: array, items: { type: integer, minimum: 1 } }
+    Swipe:
+      type: object
+      required: [decision]
+      properties: { decision: { type: string, enum: [like, pass] } }
