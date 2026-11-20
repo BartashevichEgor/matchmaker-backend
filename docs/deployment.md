@@ -1,42 +1,78 @@
-# Развёртывание Matchmaker
+# Развёртывание Matchmaker Backend
 
 ## 1. Требования
 
-Для локальной разработки нужны Python 3.13, Node.js 20+ и PowerShell. Для контейнерного запуска нужен Docker Desktop. PostgreSQL и Docker не обязательны для SQLite-демонстрации.
+Для локальной разработки нужен Python 3.13. Для контейнерного запуска нужен
+Docker Desktop. PostgreSQL и Docker не обязательны для SQLite-тестов.
 
-## 2. Структура
+Клиенты Matchmaker поддерживаются в отдельном репозитории; этот репозиторий
+содержит только API и backend-инфраструктуру.
 
-`core-api/` содержит FastAPI и миграции; `frontend/web/` — React/Vite; `chat-service/` — WebSocket; `deploy/` — production-подобный Compose. Конфигурацию не коммитим: используются `.env` и `.env.example`.
-
-## 3. Переменные окружения
+## 2. Переменные окружения
 
 | Переменная | Назначение | Пример |
 | --- | --- | --- |
 | `DATABASE_URL` | URL SQLAlchemy | `postgresql+psycopg://user:password@db:5432/matchmaker` |
 | `JWT_SECRET` | Секрет JWT, не менее 32 символов | случайная строка |
 | `ENVIRONMENT` | `local`, `test`, `production` | `local` |
+| `REDIS_URL` | Redis для общих rate limits | `redis://redis:6379/0` |
 | `MAIL_MODE` | Локальная почта или SMTP | `outbox` |
-| `VITE_API_BASE_URL` | Базовый API web-клиента | `/api/v1` или `http://127.0.0.1:8000/api/v1` |
+| `MAIL_SERVER` | SMTP/Mailpit host | `127.0.0.1` |
+| `MAIL_PORT` | SMTP/Mailpit port | `1025` |
 
-## 4. Запуск, проверка и остановка
+Локальная конфигурация находится в `core-api/.env` и не коммитится.
+Конфигурация Compose находится в корневом `.env`, который создаётся из
+`.env.example`.
 
-Локально: `./start-demo.ps1 -UseSqlite`; затем открыть `http://127.0.0.1:5173/register`. Проверка: `Invoke-WebRequest http://127.0.0.1:8000/health`. Остановить процессы можно через закрытие терминалов или по PID, записанному `start-background.ps1`.
+## 3. Прямой запуск API
 
-Контейнерно: `cd deploy`, скопировать `.env.example` в `.env`, заменить секреты, затем выполнить `docker compose up --build -d`, `docker compose ps`, `docker compose logs backend`. Остановка: `docker compose down`; команда с `-v` удалит данные БД и применяется только намеренно.
+Из корня репозитория:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r core-api/requirements-dev.txt
+Copy-Item core-api/.env.example core-api/.env
+Set-Location core-api
+..\.venv\Scripts\python.exe -m app.cli bootstrap
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Проверка:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:8000/health
+```
+
+## 4. Docker Compose
+
+Из корня репозитория:
+
+```powershell
+Copy-Item .env.example .env
+docker compose -f deploy/docker-compose.yml up --build -d
+docker compose -f deploy/docker-compose.yml ps
+docker compose -f deploy/docker-compose.yml logs backend
+```
+
+Этот Compose запускает PostgreSQL и FastAPI. Остановка:
+
+```powershell
+docker compose -f deploy/docker-compose.yml down
+```
+
+Команда `docker compose -f deploy/docker-compose.yml down -v` удаляет volume БД и применяется
+только намеренно.
 
 ## 5. Сервисы и порты
 
 | Сервис | Порт хоста | Назначение |
 | --- | --- | --- |
-| frontend/nginx | 8080 | React и обратный прокси `/api/` |
-| backend/FastAPI | внутренний 8000 | API и `/health` |
-| db/PostgreSQL 17 | внутренний 5432 | постоянные данные |
-| chat-service | 8010 локально | WebSocket-групповой чат |
+| API | `127.0.0.1:8000` | FastAPI, Swagger и health endpoints |
+| PostgreSQL | внутренний Compose-порт | постоянные данные |
 
-## 6. Версионный запуск
+## 6. Частые ошибки
 
-Для воспроизводимой демонстрации: `git fetch --tags`, `git checkout v0.N.0`, затем выполнить запуск из пункта 4. Вернуться к разработке: `git switch main`.
-
-## 7. Частые ошибки
-
-`401/403` после входа — подтвердите e-mail и повторно войдите. `503` на `/health` — проверьте `DATABASE_URL`, миграции и состояние PostgreSQL. Ошибка CORS при локальной Vite-разработке — укажите origin в `CORS_ORIGINS`; в Docker используйте тот же origin через nginx. Пустой каталог — выполните `python -m app.cli seed` после миграций.
+`503` на `/health` означает недоступность БД, Redis или другой обязательной
+зависимости. Ошибка CORS означает, что клиентский origin не добавлен в
+`CORS_ORIGINS`. Пустые справочники требуют запуска `python -m app.cli seed`
+после миграций.

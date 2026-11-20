@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
@@ -50,12 +50,11 @@ app.include_router(health.router)
 for module in (auth, profiles, catalogs, projects, recommendations, swipes):
     app.include_router(module.router, prefix="/api/v1")
 app.mount("/swagger-assets", StaticFiles(directory=str(swagger_ui_path)), name="swagger-assets")
-app.mount("/assets", StaticFiles(directory=str(ROOT / "app" / "static")), name="assets")
 
 
 @app.get("/", include_in_schema=False)
 def home():
-    return FileResponse(ROOT / "app" / "static" / "index.html")
+    return {"service": "matchmaker-api", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/docs", include_in_schema=False)
@@ -65,7 +64,7 @@ def docs():
         title="Matchmaker API — Swagger",
         swagger_js_url="/swagger-assets/swagger-ui-bundle.js",
         swagger_css_url="/swagger-assets/swagger-ui.css",
-        swagger_favicon_url="/assets/favicon.svg",
+        swagger_favicon_url="/swagger-assets/favicon-32x32.png",
     )
 
 
