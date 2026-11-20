@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from app import schemas as s
 from app.api.deps import Db, VerifiedUser
 from app.api.projects import accessible_project
-from app.models import Match, Project, ProjectMember, Swipe, User
+from app.models import Match, Profile, Project, ProjectMember, Swipe, User
 from app.services.views import match_view
 
 router = APIRouter(tags=["Matches"])
@@ -18,6 +18,9 @@ def record_swipe(db, project, candidate_id, actor, direction, decision):
         raise HTTPException(404, "Candidate not found")
     if candidate_id == project.owner_id:
         raise HTTPException(422, "You cannot swipe your own project")
+    profile = db.scalar(select(Profile).where(Profile.user_id == candidate_id))
+    if not profile or profile.visibility != "published":
+        raise HTTPException(404, "Candidate not found")
     match = db.scalar(select(Match).where(Match.project_id == project.id, Match.candidate_id == candidate_id))
     if match and decision == "pass":
         raise HTTPException(409, "A match already exists; its history is preserved")
