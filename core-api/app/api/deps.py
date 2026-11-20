@@ -1,3 +1,4 @@
+import time
 from typing import Annotated
 
 from fastapi import Depends, HTTPException
@@ -26,6 +27,7 @@ def current_user(db: Db, credentials: Annotated[HTTPAuthorizationCredentials | N
             RefreshSession.user_id == user.id,
             RefreshSession.revoked.is_(False),
             RefreshSession.revoked_at.is_(None),
+            RefreshSession.expires_at > int(time.time()),
         )
     )
     if not session:

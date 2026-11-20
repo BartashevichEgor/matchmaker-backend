@@ -98,13 +98,17 @@ class RefreshInput(Input):
     refresh_token: str = Field(min_length=1, max_length=4096)
 
 
-class WebTokens(Output):
+class AccessTokens(Output):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
 
 
-class MobileTokens(WebTokens):
+class WebTokens(AccessTokens):
+    csrf_token: str
+
+
+class MobileTokens(AccessTokens):
     refresh_token: str
     refresh_expires_in: int
     session_id: str

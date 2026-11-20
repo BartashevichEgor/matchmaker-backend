@@ -15,6 +15,7 @@ Docker Desktop. PostgreSQL и Docker не обязательны для SQLite-�
 | `DATABASE_URL` | URL SQLAlchemy | `postgresql+psycopg://user:password@db:5432/matchmaker` |
 | `JWT_SECRET` | Секрет JWT, не менее 32 символов | случайная строка |
 | `ENVIRONMENT` | `local`, `test`, `production` | `local` |
+| `MAX_REQUEST_BODY_BYTES` | Максимальный размер HTTP-тела | `2000000` |
 | `REDIS_URL` | Redis для общих rate limits | `redis://redis:6379/0` |
 | `MAIL_MODE` | Локальная почта или SMTP | `outbox` |
 | `MAIL_SERVER` | SMTP/Mailpit host | `127.0.0.1` |
