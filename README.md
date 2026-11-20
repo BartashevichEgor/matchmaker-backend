@@ -49,14 +49,15 @@ database password and JWT secret with local-only random values:
 
 ```powershell
 Copy-Item .env.example .env
-docker compose -f deploy/docker-compose.yml up --build -d
-docker compose -f deploy/docker-compose.yml ps
-docker compose -f deploy/docker-compose.yml logs backend
+docker compose --env-file .env -f deploy/docker-compose.yml up --build -d --wait
+docker compose --env-file .env -f deploy/docker-compose.yml ps
+docker compose --env-file .env -f deploy/docker-compose.yml logs backend
 docker compose -f deploy/docker-compose.yml down
 ```
 
-Compose starts PostgreSQL and FastAPI. `docker compose down -v` also deletes
-the database volume; use it only when that data is no longer needed.
+Compose starts PostgreSQL, Redis, Mailpit and FastAPI. Mailpit is available at
+`http://127.0.0.1:8025`. `docker compose down -v` also deletes the database
+and Mailpit volumes; use it only when that data is no longer needed.
 
 ## Database and migrations
 

@@ -6,13 +6,19 @@ API принимает JSON. Для защищённых методов пере
 
 | Метод | Путь относительно /api/v1 | Доступ | Результат |
 |---|---|---|---|
-| POST | /auth/register | Гость | 201, сообщение; 409 при занятом email или username |
+| POST | /auth/register | Гость | 201, сообщение; `mode` обязателен: `developer` или `project` |
 | GET | /auth/session | Access JWT | Пользователь в полях React AuthService (`id`, `username`, `email`, `createdAt`) |
 | POST | /auth/verify-email | Гость | 200; 400 при неверном/истёкшем коде |
 | POST | /auth/resend-verification | Гость | Обобщённое сообщение без раскрытия существования аккаунта |
-| POST | /auth/login | Гость | access_token, refresh_token, expires_in; 401/403 |
-| POST | /auth/refresh | Refresh JWT | Новая пара токенов; старый refresh одноразовый |
-| POST | /auth/logout | Access JWT | Отзыв всех сессий текущего пользователя |
+| POST | /auth/login, /auth/mobile/login | Гость | access и refresh tokens для мобильного/legacy транспорта |
+| POST | /auth/web/login | Гость + Origin | access token; refresh token — HttpOnly cookie |
+| POST | /auth/refresh, /auth/mobile/refresh | Refresh JWT | Новая пара токенов; старый refresh одноразовый |
+| POST | /auth/web/refresh | Refresh cookie + Origin | Новый access token и rotated HttpOnly cookie |
+| POST | /auth/logout, /auth/web/logout-all | Access JWT | Отзыв всех сессий текущего пользователя |
+| POST | /auth/mobile/logout | Refresh JWT | Отзыв мобильной сессии |
+| POST | /auth/web/logout | Refresh cookie + Origin | Отзыв web-сессии и очистка cookie |
+| GET | /auth/sessions | Access JWT | Список сессий без refresh-токенов |
+| DELETE | /auth/sessions/{session_id} | Access JWT | Отзыв одной своей сессии |
 | POST | /auth/forgot-password | Гость | Запрос кода восстановления |
 | POST | /auth/reset-password | Гость с кодом | Новый пароль и отзыв всех сессий |
 | GET | /users/me | Access JWT | Приватные данные аккаунта без хеша |
@@ -40,7 +46,7 @@ API принимает JSON. Для защищённых методов пере
 
 Регистрация:
 ```json
-{"username":"Student Developer","email":"student@example.com","password":"ExamplePassword123!"}
+{"username":"Student Developer","email":"student@example.com","password":"ExamplePassword123!","mode":"developer"}
 ```
 Логин:
 ```json
@@ -69,7 +75,7 @@ API принимает JSON. Для защищённых методов пере
 
 ## Авторизация и почта
 
-`username` — обязательное публичное имя для каталога профилей: 1–50 символов после обрезки краевых пробелов, не может быть пустым и гарантированно уникально. Пароль: 8–128 символов. React проверяет повтор пароля до отправки регистрации; остальные клиенты могут передать необязательное поле `password_confirm` или `confirmPassword`, и сервер сверит его с паролем. Email нормализуется. Access JWT действует 15 минут, refresh — 7 дней; параметры конфигурируются. Данные JWT подписаны HS256, проверяются issuer/audience/type/exp/token_version. Logout и reset отзывают все сессии. Код: 6 цифр, срок 10 минут, не более 5 неверных попыток. Повторная отправка заменяет предыдущий код. SMTP-сбой даёт 503; уже созданный аккаунт можно подтвердить после повторного запроса кода.
+`username` — обязательное публичное имя для каталога профилей: 1–50 символов после обрезки краевых пробелов, не может быть пустым и гарантированно уникально. `mode` — обязательный `developer` или `project`. Пароль: 8–128 символов. React проверяет повтор пароля до отправки регистрации; остальные клиенты могут передать необязательное поле `password_confirm` или `confirmPassword`, и сервер сверит его с паролем. Email нормализуется. Access JWT действует 15 минут, refresh — 7 дней; параметры конфигурируются. Данные JWT подписаны HS256, проверяются issuer/audience/type/exp/token_version/session. Web refresh хранится только в HttpOnly cookie и требует разрешённый Origin; мобильный transport получает refresh token в JSON. Logout и reset отзывают сессии. Код: 6 цифр, срок 10 минут, не более 5 неверных попыток. Verification link — opaque token, single-use, срок 24 часа; в письме он передаётся во fragment URL. Повторная отправка заменяет предыдущие verification credentials. SMTP-сбой даёт 503; уже созданный аккаунт можно подтвердить после повторного запроса.
 
 Для действий авторизации установлены отдельные лимиты по email и IP. Redis обеспечивает общий лимит для нескольких процессов. Локальный режим без Redis предназначен для одного процесса. За reverse proxy доверяйте только IP своего proxy, иначе клиент может подделать адрес для лимитов.
 

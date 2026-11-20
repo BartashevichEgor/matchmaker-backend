@@ -16,6 +16,7 @@ from app.api import auth, catalogs, health, profiles, projects, recommendations,
 from app.core.config import ROOT, get_settings
 
 settings = get_settings()
+docs_enabled = settings.environment != "production"
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
 LOG_DIR = ROOT / "log"
@@ -33,6 +34,7 @@ app = FastAPI(
     version="0.2.0",
     docs_url=None,
     redoc_url=None,
+    openapi_url="/openapi.json" if docs_enabled else None,
     description="Student project matching. Register → verify email → login → profile → projects → match.",
 )
 # swagger-ui 4.15, bundled locally for an offline demo, reads OpenAPI 3.0.x.
@@ -42,30 +44,33 @@ app.openapi_version = "3.0.3"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 app.include_router(health.router)
 for module in (auth, profiles, catalogs, projects, recommendations, swipes):
     app.include_router(module.router, prefix="/api/v1")
-app.mount("/swagger-assets", StaticFiles(directory=str(swagger_ui_path)), name="swagger-assets")
+if docs_enabled:
+    app.mount("/swagger-assets", StaticFiles(directory=str(swagger_ui_path)), name="swagger-assets")
 
 
 @app.get("/", include_in_schema=False)
 def home():
-    return {"service": "matchmaker-api", "docs": "/docs", "health": "/health"}
+    return {"service": "matchmaker-api", "docs": "/docs" if docs_enabled else None, "health": "/health"}
 
 
-@app.get("/docs", include_in_schema=False)
-def docs():
-    return get_swagger_ui_html(
-        openapi_url="/openapi.json",
-        title="Matchmaker API — Swagger",
-        swagger_js_url="/swagger-assets/swagger-ui-bundle.js",
-        swagger_css_url="/swagger-assets/swagger-ui.css",
-        swagger_favicon_url="/swagger-assets/favicon-32x32.png",
-    )
+if docs_enabled:
+
+    @app.get("/docs", include_in_schema=False)
+    def docs():
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title="Matchmaker API — Swagger",
+            swagger_js_url="/swagger-assets/swagger-ui-bundle.js",
+            swagger_css_url="/swagger-assets/swagger-ui.css",
+            swagger_favicon_url="/swagger-assets/favicon-32x32.png",
+        )
 
 
 @app.exception_handler(RequestValidationError)

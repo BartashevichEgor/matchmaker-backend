@@ -49,19 +49,21 @@ Invoke-WebRequest http://127.0.0.1:8000/health
 
 ```powershell
 Copy-Item .env.example .env
-docker compose -f deploy/docker-compose.yml up --build -d
-docker compose -f deploy/docker-compose.yml ps
-docker compose -f deploy/docker-compose.yml logs backend
+docker compose --env-file .env -f deploy/docker-compose.yml up --build -d --wait
+docker compose --env-file .env -f deploy/docker-compose.yml ps
+docker compose --env-file .env -f deploy/docker-compose.yml logs backend
 ```
 
-Этот Compose запускает PostgreSQL и FastAPI. Остановка:
+Этот Compose запускает PostgreSQL, Redis, Mailpit и FastAPI. Mailpit доступен
+на `http://127.0.0.1:8025`; его SMTP-порт `1025` доступен только внутри сети
+Compose. Остановка:
 
 ```powershell
-docker compose -f deploy/docker-compose.yml down
+docker compose --env-file .env -f deploy/docker-compose.yml down
 ```
 
-Команда `docker compose -f deploy/docker-compose.yml down -v` удаляет volume БД и применяется
-только намеренно.
+Команда `docker compose --env-file .env -f deploy/docker-compose.yml down -v`
+удаляет volume БД и Mailpit; применять её только намеренно.
 
 ## 5. Сервисы и порты
 
@@ -69,10 +71,13 @@ docker compose -f deploy/docker-compose.yml down
 | --- | --- | --- |
 | API | `127.0.0.1:8000` | FastAPI, Swagger и health endpoints |
 | PostgreSQL | внутренний Compose-порт | постоянные данные |
+| Redis | внутренний Compose-порт | общие rate limits |
+| Mailpit | `127.0.0.1:8025` | локальный inbox для email |
 
 ## 6. Частые ошибки
 
 `503` на `/health` означает недоступность БД, Redis или другой обязательной
 зависимости. Ошибка CORS означает, что клиентский origin не добавлен в
 `CORS_ORIGINS`. Пустые справочники требуют запуска `python -m app.cli seed`
-после миграций.
+после миграций. Если Compose запускается с `-f deploy/docker-compose.yml`,
+передавай корневой `.env` явно через `--env-file .env`.

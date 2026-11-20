@@ -2,11 +2,12 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import decode_token
 from app.db import get_db
-from app.models import User
+from app.models import RefreshSession, User
 
 Db = Annotated[Session, Depends(get_db)]
 bearer = HTTPBearer(auto_error=False)
@@ -18,6 +19,16 @@ def current_user(db: Db, credentials: Annotated[HTTPAuthorizationCredentials | N
     payload = decode_token(credentials.credentials, "access")
     user = db.get(User, int(payload["sub"]))
     if not user or not user.is_active or user.token_version != payload["ver"]:
+        raise HTTPException(401, "Session is no longer valid")
+    session = db.scalar(
+        select(RefreshSession).where(
+            RefreshSession.id == payload["sid"],
+            RefreshSession.user_id == user.id,
+            RefreshSession.revoked.is_(False),
+            RefreshSession.revoked_at.is_(None),
+        )
+    )
+    if not session:
         raise HTTPException(401, "Session is no longer valid")
     return user
 

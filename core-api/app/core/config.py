@@ -23,11 +23,15 @@ class Settings(BaseSettings):
     mail_port: int = 1025
     mail_username: str = ""
     mail_password: SecretStr = SecretStr("")
-    mail_from: str = "noreply@matchmaker.local"
+    mail_from: str = "noreply@example.com"
     mail_starttls: bool = False
     mail_ssl_tls: bool = False
     mail_use_credentials: bool = False
     outbox_dir: Path = ROOT / ".local" / "outbox"
+    web_base_url: str = "http://localhost:5173"
+    refresh_cookie_name: str = "matchmaker_refresh"
+    refresh_cookie_secure: bool = False
+    refresh_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     @model_validator(mode="after")
     def validate_runtime(self):
@@ -38,6 +42,10 @@ class Settings(BaseSettings):
                 raise ValueError("Production requires PostgreSQL")
             if not self.redis_url or self.mail_mode != "smtp":
                 raise ValueError("Production requires Redis and SMTP")
+            if not self.refresh_cookie_secure or not self.web_base_url.startswith("https://"):
+                raise ValueError("Production web auth requires HTTPS and secure refresh cookies")
+        if self.refresh_cookie_samesite == "none" and not self.refresh_cookie_secure:
+            raise ValueError("SameSite=None requires secure refresh cookies")
         return self
 
 

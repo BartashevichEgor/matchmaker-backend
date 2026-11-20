@@ -8,7 +8,7 @@ The current Compose configuration is:
 - SMTP port inside Compose: `1025`
 - Mailpit web inbox: <http://localhost:8025>
 - API address: <http://127.0.0.1:8000>
-- Development sender: `noreply@matchmaker.local`
+- Development sender: `noreply@example.com`
 
 Match, like, project-join and chat notifications are in-app notifications in the MVP. They do not appear in Mailpit. Mailpit is used for account verification and password-reset email flows.
 
@@ -30,11 +30,11 @@ JWT_SECRET=local-dev-secret-change-me-12345678901234567890
 
 Do not commit `.env` or use these values in production.
 
-Start the database, Redis, Mailpit and API:
+Start the database, Redis, Mailpit and backend API:
 
 ```powershell
-docker compose up -d db redis mailpit api
-docker compose ps
+docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait
+docker compose --env-file .env -f deploy/docker-compose.yml ps
 ```
 
 Open the inbox:
@@ -43,7 +43,7 @@ Open the inbox:
 Start-Process http://localhost:8025
 ```
 
-The API container is configured to use `MAIL_MODE=smtp`, `MAIL_SERVER=mailpit` and `MAIL_PORT=1025`. The browser uses port `8025` for the Mailpit UI; it is not the SMTP port.
+The backend container is configured to use `MAIL_MODE=smtp`, `MAIL_SERVER=mailpit` and `MAIL_PORT=1025`. The browser uses port `8025` for the Mailpit UI; it is not the SMTP port.
 
 ## Verify a new account
 
@@ -90,9 +90,9 @@ Replace `123456` with the code shown in Mailpit. Use `mode = "project"` instead 
 
 ## Verify the planned link flow
 
-Phase 1 will include both a six-digit code and a verification link in the email. The link token will be single-use and valid for 24 hours. The code remains valid for 10 minutes with at most five failed attempts.
+Phase 1 includes both a six-digit code and a verification link in the email. The link token is single-use and valid for 24 hours. It is in the URL fragment so it is not sent in HTTP requests or Referer headers. The code remains valid for 10 minutes with at most five failed attempts.
 
-When the link endpoint is implemented, test it by:
+Test the link endpoint by:
 
 1. Registering a fresh test account.
 2. Opening the newest message in Mailpit.
@@ -114,7 +114,7 @@ Invoke-RestMethod `
   -Body $email
 ```
 
-The newest message should contain the usable credentials. Older verification credentials must no longer work after the Phase 1 resend behavior is implemented.
+The newest message should contain the usable credentials. Older verification credentials no longer work after a resend.
 
 Request a password-reset code:
 
@@ -135,12 +135,12 @@ Password-reset messages should be checked in the same Mailpit inbox. The API mus
 Check that all services are running:
 
 ```powershell
-docker compose ps
-docker compose logs api --tail 100
-docker compose logs mailpit --tail 100
+docker compose --env-file .env -f deploy/docker-compose.yml ps
+docker compose --env-file .env -f deploy/docker-compose.yml logs backend --tail 100
+docker compose --env-file .env -f deploy/docker-compose.yml logs mailpit --tail 100
 ```
 
-The API must use `MAIL_SERVER=mailpit` and `MAIL_PORT=1025` inside Compose. `localhost:1025` is incorrect from inside the API container.
+The backend must use `MAIL_SERVER=mailpit` and `MAIL_PORT=1025` inside Compose. `localhost:1025` is incorrect from inside the backend container.
 
 ### The API is not reachable
 
@@ -148,12 +148,12 @@ Check <http://127.0.0.1:8000/health> and inspect the API logs. The API depends o
 
 ### The message shows the wrong recipient or sender
 
-The recipient is the `email` submitted during registration. The sender is the `MAIL_FROM` value supplied to the API container. In the default Compose setup it is `noreply@matchmaker.local`.
+The recipient is the `email` submitted during registration. The sender is the `MAIL_FROM` value supplied to the backend container. In the default Compose setup it is `noreply@example.com`.
 
 ### Stop the local stack
 
 ```powershell
-docker compose stop
+docker compose --env-file .env -f deploy/docker-compose.yml stop
 ```
 
-Use `docker compose down` only when the containers should be removed. Do not use `down --volumes` unless local database data is intentionally disposable.
+Use `docker compose --env-file .env -f deploy/docker-compose.yml down` only when the containers should be removed. Do not use `down --volumes` unless local database and inbox data are intentionally disposable.
