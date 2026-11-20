@@ -20,19 +20,33 @@ def test_cosine(left, right, expected):
     assert cosine(left, right) == pytest.approx(expected)
 
 
-def make_project(client, headers, skill=1):
+def make_project(client, headers, skill=1, **overrides):
+    payload = {
+        "title": "Hackathon team",
+        "description": "We are building a project together.",
+        "skills": [{"skill_id": skill, "weight": 5}],
+        "role_ids": [1],
+        "visibility": "published",
+    }
+    payload.update(overrides)
     result = client.post(
         "/api/v1/projects",
         headers=headers,
-        json={
-            "title": "Hackathon team",
-            "description": "We are building a project together.",
-            "skills": [{"skill_id": skill, "weight": 5}],
-            "role_ids": [1],
-        },
+        json=payload,
     )
     assert result.status_code == 201, result.text
     return result.json()
+
+
+def test_second_project_is_rejected(client, account):
+    _, headers, _ = account("single-owner@example.com")
+    make_project(client, headers)
+    result = client.post(
+        "/api/v1/projects",
+        headers=headers,
+        json={"title": "Second project", "description": "A second project description."},
+    )
+    assert result.status_code == 409
 
 
 def test_profile_validation_and_privacy(client, account):
@@ -54,7 +68,9 @@ def test_profile_validation_and_privacy(client, account):
     )
     assert client.patch("/api/v1/profiles/me", headers=headers, json={"role_id": 9999}).status_code == 422
     result = client.patch(
-        "/api/v1/profiles/me", headers=headers, json={"first_name": "Егор", "birth_date": "2005-01-01"}
+        "/api/v1/profiles/me",
+        headers=headers,
+        json={"first_name": "Егор", "birth_date": "2005-01-01", "visibility": "published"},
     )
     assert result.status_code == 200
     assert result.json()["first_name"] == "Егор"
@@ -86,7 +102,12 @@ def test_recommendations_and_match_permissions(client, account, db):
     candidate, headers, _ = account("candidate@example.com")
     _, outsider, _ = account("outsider@example.com")
     project = make_project(client, owner_headers)
-    unrelated = make_project(client, owner_headers, skill=5)
+    _, other_owner_headers, _ = account("other-owner@example.com")
+    unrelated = make_project(client, other_owner_headers, skill=5)
+    assert (
+        client.patch("/api/v1/profiles/me", headers=headers, json={"visibility": "published"}).status_code
+        == 200
+    )
     assert (
         client.put(
             "/api/v1/profiles/me/skills", headers=headers, json={"skills": [{"skill_id": 1, "level": 5}]}

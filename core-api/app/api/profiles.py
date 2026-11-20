@@ -1,12 +1,47 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import delete, select
 
 from app import schemas as s
 from app.api.deps import CurrentUser, Db, VerifiedUser
-from app.models import ProfileSkill, Role, Skill, User
+from app.models import Profile, ProfileSkill, Role, Skill, User
 from app.services.views import ensure_ids, profile_for, profile_view, public_profile
 
 router = APIRouter(tags=["Profiles"])
+
+
+@router.get("/profiles", response_model=list[s.PublicProfile])
+def list_profiles(
+    user: VerifiedUser,
+    db: Db,
+    q: str = Query("", max_length=80),
+    role_id: int | None = Query(None, gt=0),
+    skill_id: int | None = Query(None, gt=0),
+    work_format: str | None = Query(None, pattern="^(remote|hybrid|onsite)$"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    query = (
+        select(Profile)
+        .join(User)
+        .where(
+            User.id != user.id,
+            User.is_active.is_(True),
+            User.is_verified.is_(True),
+            Profile.visibility == "published",
+        )
+    )
+    if q:
+        query = query.where(User.username.icontains(q, autoescape=True))
+    if role_id:
+        query = query.where(Profile.role_id == role_id)
+    if skill_id:
+        query = query.where(
+            Profile.id.in_(select(ProfileSkill.profile_id).where(ProfileSkill.skill_id == skill_id))
+        )
+    if work_format:
+        query = query.where(Profile.work_format == work_format)
+    profiles = db.scalars(query.order_by(User.id.asc()).offset(offset).limit(limit))
+    return [public_profile(db, profile) for profile in profiles]
 
 
 @router.get("/users/me", response_model=s.UserRead)
@@ -50,4 +85,7 @@ def get_profile(user_id: int, user: VerifiedUser, db: Db):
     )
     if not target:
         raise HTTPException(404, "Profile not found")
-    return public_profile(db, profile_for(db, target.id))
+    profile = profile_for(db, target.id)
+    if profile.visibility != "published":
+        raise HTTPException(404, "Profile not found")
+    return public_profile(db, profile)

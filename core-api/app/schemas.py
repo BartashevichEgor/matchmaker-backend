@@ -179,6 +179,8 @@ class ProfileUpdate(Input):
     experience: str = Field(default="", max_length=3000)
     interests: str = Field(default="", max_length=2000)
     role_id: int | None = Field(default=None, gt=0)
+    visibility: Literal["draft", "published", "hidden"] = "draft"
+    work_format: Literal["remote", "hybrid", "onsite"] = "remote"
 
     @field_validator("github_url")
     @classmethod
@@ -223,6 +225,8 @@ class ProfileRead(Output):
     experience: str
     interests: str
     role_id: int | None
+    visibility: Literal["draft", "published", "hidden"]
+    work_format: Literal["remote", "hybrid", "onsite"]
     skills: list[SkillLevel]
 
 
@@ -236,6 +240,7 @@ class PublicProfile(Output):
     experience: str
     interests: str
     role_id: int | None
+    work_format: Literal["remote", "hybrid", "onsite"]
     skills: list[SkillLevel]
 
 
@@ -249,6 +254,19 @@ class ProjectInput(Input):
     description: str = Field(min_length=10, max_length=10000)
     skills: list[SkillWeight] = Field(default_factory=list, max_length=100)
     role_ids: list[int] = Field(default_factory=list, max_length=20)
+    kind: Literal["project", "company"] = "project"
+    work_format: Literal["remote", "hybrid", "onsite"] = "remote"
+    commitment: Literal["full_time", "part_time", "flexible"] = "flexible"
+    website_url: HttpUrl | None = None
+    logo_url: HttpUrl | None = None
+    visibility: Literal["draft", "published", "hidden"] = "draft"
+
+    @field_validator("website_url", "logo_url")
+    @classmethod
+    def bounded_project_url(cls, value):
+        if value and len(str(value)) > 300:
+            raise ValueError("URL must contain at most 300 characters")
+        return value
 
     @model_validator(mode="after")
     def unique_requirements(self):
@@ -270,6 +288,39 @@ class ProjectRead(Output):
     created_at: datetime
     skills: list[SkillWeight]
     role_ids: list[int]
+    kind: Literal["project", "company"]
+    work_format: Literal["remote", "hybrid", "onsite"]
+    commitment: Literal["full_time", "part_time", "flexible"]
+    website_url: str | None
+    logo_url: str | None
+    visibility: Literal["draft", "published", "hidden"]
+    updated_at: datetime
+
+
+class CardStatus(Output):
+    exists: bool
+    complete: bool
+    visibility: Literal["draft", "published", "hidden"] | None
+    status: Literal["open", "closed", "blocked"] | None = None
+
+
+class OnboardingRead(Output):
+    mode: Literal["developer", "project"]
+    profile: CardStatus
+    project: CardStatus
+    next_setup: Literal["profile", "project", "none"]
+    can_create_project: bool
+
+
+class FavoriteRead(Output):
+    kind: Literal["profile", "project"]
+    target_id: int
+    created_at: datetime
+
+
+class FavoritesRead(Output):
+    kind: Literal["profile", "project"]
+    items: list[PublicProfile | ProjectRead]
 
 
 class StatusInput(Input):

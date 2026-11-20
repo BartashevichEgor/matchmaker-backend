@@ -90,7 +90,7 @@ def read_link_token(email):
 
 @pytest.fixture
 def account(client):
-    def create(email="student@example.com"):
+    def create(email="student@example.com", mode="developer"):
         password = "ValidPassword123!"
         username = re.sub(r"[^a-z0-9._-]", "-", email.split("@", 1)[0].lower())
         result = client.post(
@@ -100,7 +100,7 @@ def account(client):
                 "email": email,
                 "password": password,
                 "password_confirm": password,
-                "mode": "developer",
+                "mode": mode,
             },
         )
         assert result.status_code == 201, result.text
