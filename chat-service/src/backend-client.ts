@@ -7,7 +7,7 @@ const matchSchema = z.object({
   room_key: z.string(),
   created_at: z.string(),
   project: z.object({ id: z.number(), title: z.string(), owner_id: z.number(), kind: z.literal('project') }),
-  candidate: z.object({ user_id: z.number(), display_name: z.string(), headline: z.string(), avatar_url: z.string().nullable() }),
+  candidate: z.object({ user_id: z.number(), display_name: z.string(), headline: z.string().nullable(), avatar_url: z.string().nullable() }),
 });
 
 export type MatchSummary = z.infer<typeof matchSchema>;
