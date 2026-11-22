@@ -56,6 +56,43 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+  chat-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: matchmaker_chat
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: ${CHAT_POSTGRES_PASSWORD:?Set CHAT_POSTGRES_PASSWORD in root .env}
+    volumes:
+      - chat_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U chat -d matchmaker_chat']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+  chat:
+    build: ./chat-service
+    environment:
+      CHAT_PORT: 3000
+      CHAT_DATABASE_URL: postgresql://chat:${CHAT_POSTGRES_PASSWORD}@chat-db:5432/matchmaker_chat
+      MATCHMAKER_API_URL: http://api:8000
+      CHAT_ALLOWED_ORIGINS: ${CHAT_ALLOWED_ORIGINS:-http://localhost:5173}
+      CHAT_INTERNAL_TIMEOUT_MS: 3000
+    ports:
+      - '127.0.0.1:${CHAT_PORT:-3000}:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+      chat-db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
 volumes:
   postgres_data:
   redis_data:
+  chat_data:

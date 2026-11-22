@@ -73,7 +73,7 @@
 `ChatAccessRead`:
 
 ```json
-{"allowed":true,"match_id":42,"room_key":"match:42","candidate_id":7,"project_owner_id":3,"expires_at":null}
+{"allowed":true,"match_id":42,"room_key":"match:42","candidate_id":7,"current_user_id":7,"project_owner_id":3,"expires_at":null}
 ```
 
 - [x] Step 1: Add tests for list/detail summaries, candidate join, project-owner access and outsider denial.

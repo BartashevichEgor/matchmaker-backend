@@ -118,6 +118,7 @@ def chat_access(match_id: int, user: VerifiedUser, db: Db):
     return s.ChatAccessRead(
         **match_view(db, match).model_dump(),
         allowed=True,
+        current_user_id=user.id,
         project_owner_id=project.owner_id,
         expires_at=None,
     )
