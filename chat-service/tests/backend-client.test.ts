@@ -23,6 +23,12 @@ describe('FastAPI chat access client', () => {
     await expect(client.getChatAccess(42, 'secret-access')).rejects.toMatchObject({ status: 403 });
   });
 
+  it('accepts nullable candidate headlines returned by the matches endpoint', async () => {
+    const match = { ...access, candidate: { ...access.candidate, headline: null } };
+    const client = createBackendClient('http://api:8000', 1000, vi.fn(async () => new Response(JSON.stringify([match]), { status: 200 })) as typeof fetch);
+    await expect(client.listMatches('secret-access')).resolves.toMatchObject([{ candidate: { headline: null } }]);
+  });
+
   it('rejects a valid response after its access window has expired', async () => {
     const expired = { ...access, expires_at: '2020-01-01T00:00:00+00:00' };
     const client = createBackendClient('http://api:8000', 1000, vi.fn(async () => new Response(JSON.stringify(expired), { status: 200 })) as typeof fetch);
