@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Match, ProjectMember, User
+from app.models import Match, Notification, Project, ProjectMember, User
 from app.services.scoring import cosine
 
 
@@ -137,13 +137,43 @@ def test_recommendations_and_match_permissions(client, account, db):
     assert result.status_code == 200, result.text
     match = result.json()["match"]
     assert match and match["room_key"] == f"match:{match['id']}"
+    assert match["project"] == {
+        "id": project["id"],
+        "title": project["title"],
+        "owner_id": owner["id"],
+        "kind": "project",
+    }
+    assert match["candidate"]["user_id"] == candidate["id"]
+    assert match["candidate"]["display_name"] == candidate["username"]
+    assert match["candidate"]["headline"] is None
+    assert match["candidate"]["avatar_url"] is None
+    assert "email" not in match["candidate"] and "birth_date" not in match["candidate"]
     assert (
         client.put(path, headers=owner_headers, json={"decision": "like"}).json()["match"]["id"]
         == match["id"]
     )
+    assert client.put(path, headers=owner_headers, json={"decision": "pass"}).status_code == 409
     assert db.scalar(select(func.count()).select_from(Match)) == 1
+    assert (
+        db.scalar(select(func.count()).select_from(Notification).where(Notification.type == "match_created"))
+        == 2
+    )
     assert client.get(f"/api/v1/matches/{match['id']}/chat-access", headers=outsider).status_code == 403
-    assert client.get(f"/api/v1/matches/{match['id']}/chat-access", headers=headers).status_code == 200
+    detail = client.get(f"/api/v1/matches/{match['id']}", headers=headers)
+    assert detail.status_code == 200
+    detail_data = detail.json()
+    assert detail_data.pop("created_at")
+    assert detail_data == {key: value for key, value in match.items() if key != "created_at"}
+    assert client.get(f"/api/v1/matches/{match['id']}", headers=owner_headers).status_code == 200
+    assert client.get(f"/api/v1/matches/{match['id']}", headers=outsider).status_code == 403
+    assert client.get("/api/v1/matches/99999", headers=headers).status_code == 404
+    access = client.get(f"/api/v1/matches/{match['id']}/chat-access", headers=headers)
+    assert access.status_code == 200
+    access_data = access.json()
+    assert access_data.pop("created_at")
+    expected_access = match | {"allowed": True, "project_owner_id": owner["id"], "expires_at": None}
+    expected_access.pop("created_at")
+    assert access_data == expected_access
     assert client.get("/api/v1/matches", headers=outsider).json() == []
     assert client.post(f"/api/v1/matches/{match['id']}/join", headers=headers).status_code == 200
     assert client.post(f"/api/v1/matches/{match['id']}/join", headers=headers).status_code == 200
@@ -152,6 +182,65 @@ def test_recommendations_and_match_permissions(client, account, db):
         p["project"]["id"] != project["id"]
         for p in client.get("/api/v1/recommendations/projects", headers=headers).json()
     )
+
+
+def test_repeated_pass_is_idempotent_and_hides_project(client, account):
+    _, owner_headers, _ = account("pass-owner@example.com", mode="project")
+    _, candidate_headers, _ = account("pass-candidate@example.com")
+    assert (
+        client.patch(
+            "/api/v1/profiles/me", headers=candidate_headers, json={"visibility": "published"}
+        ).status_code
+        == 200
+    )
+    project = make_project(client, owner_headers)
+    path = f"/api/v1/projects/{project['id']}/my-swipe"
+
+    first = client.put(path, headers=candidate_headers, json={"decision": "pass"})
+    repeated = client.put(path, headers=candidate_headers, json={"decision": "pass"})
+
+    assert first.status_code == repeated.status_code == 200
+    assert first.json()["match"] is None and repeated.json()["match"] is None
+    assert all(
+        item["project"]["id"] != project["id"]
+        for item in client.get("/api/v1/recommendations/projects", headers=candidate_headers).json()
+    )
+
+
+def test_unpublished_candidate_cannot_match(client, account):
+    _, owner_headers, _ = account("private-owner@example.com", mode="project")
+    candidate, _, _ = account("private-candidate@example.com")
+    project = make_project(client, owner_headers)
+
+    result = client.put(
+        f"/api/v1/projects/{project['id']}/candidates/{candidate['id']}/swipe",
+        headers=owner_headers,
+        json={"decision": "like"},
+    )
+
+    assert result.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("status", "visibility"),
+    [("open", "draft"), ("open", "hidden"), ("closed", "published"), ("blocked", "published")],
+)
+def test_owner_cannot_swipe_unavailable_project(client, account, db, status, visibility):
+    _, owner_headers, _ = account(f"unavailable-owner-{status}-{visibility}@example.com", mode="project")
+    candidate, _, _ = account(f"unavailable-candidate-{status}-{visibility}@example.com")
+    project = make_project(client, owner_headers)
+    stored_project = db.get(Project, project["id"])
+    stored_project.status = status
+    stored_project.visibility = visibility
+    db.commit()
+
+    result = client.put(
+        f"/api/v1/projects/{project['id']}/candidates/{candidate['id']}/swipe",
+        headers=owner_headers,
+        json={"decision": "like"},
+    )
+
+    assert result.status_code == 409
 
 
 def test_moderation_ownership_and_filtering(client, account, db):

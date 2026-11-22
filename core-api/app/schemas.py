@@ -335,12 +335,46 @@ class SwipeInput(Input):
     decision: Literal["like", "pass"]
 
 
+class MatchProjectSummary(Output):
+    id: int
+    title: str
+    owner_id: int
+    kind: Literal["project", "company"]
+
+
+class MatchCandidateSummary(Output):
+    user_id: int
+    display_name: str
+    headline: str | None
+    avatar_url: str | None
+
+
 class MatchRead(Output):
     id: int
     project_id: int
     candidate_id: int
     created_at: datetime
     room_key: str
+    project: MatchProjectSummary
+    candidate: MatchCandidateSummary
+
+
+class ChatAccessRead(MatchRead):
+    allowed: bool
+    project_owner_id: int
+    expires_at: datetime | None
+
+
+class NotificationRead(Output):
+    id: int
+    type: Literal["match_created", "project_joined"]
+    payload: dict[str, int | str]
+    created_at: datetime
+    read_at: datetime | None
+
+
+class UnreadCountRead(Output):
+    unread_count: int
 
 
 class SwipeRead(Output):

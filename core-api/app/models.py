@@ -1,12 +1,14 @@
 from datetime import UTC, date, datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -168,6 +170,23 @@ class ProjectMember(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        CheckConstraint("type IN ('match_created', 'project_joined')", name="ck_notification_type"),
+        UniqueConstraint("event_key", name="uq_notification_event_key"),
+        Index("ix_notifications_recipient_created", "recipient_id", "created_at"),
+        Index("ix_notifications_recipient_read", "recipient_id", "read_at"),
+    )
+    id: Mapped[int] = mapped_column(ID, primary_key=True)
+    recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    type: Mapped[str] = mapped_column(String(30))
+    payload: Mapped[dict[str, int | str]] = mapped_column(JSON)
+    event_key: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class EmailCode(Base):

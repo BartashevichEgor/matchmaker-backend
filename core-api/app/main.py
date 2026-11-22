@@ -12,7 +12,18 @@ from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
 from swagger_ui_bundle import swagger_ui_path
 
-from app.api import auth, catalogs, favorites, health, onboarding, profiles, projects, recommendations, swipes
+from app.api import (
+    auth,
+    catalogs,
+    favorites,
+    health,
+    notifications,
+    onboarding,
+    profiles,
+    projects,
+    recommendations,
+    swipes,
+)
 from app.core.config import ROOT, get_settings
 from app.core.request_limits import RequestBodyLimitMiddleware
 
@@ -50,7 +61,17 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
 app.include_router(health.router)
-for module in (auth, profiles, catalogs, projects, recommendations, favorites, onboarding, swipes):
+for module in (
+    auth,
+    profiles,
+    catalogs,
+    projects,
+    recommendations,
+    favorites,
+    onboarding,
+    swipes,
+    notifications,
+):
     app.include_router(module.router, prefix="/api/v1")
 if docs_enabled:
     app.mount("/swagger-assets", StaticFiles(directory=str(swagger_ui_path)), name="swagger-assets")
