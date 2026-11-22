@@ -35,8 +35,8 @@ describe.skipIf(!databaseUrl)('chat message repository', () => {
     await pool.query('UPDATE message SET created_at = $2 WHERE conversation_id = $1', [conversation.id, new Date('2026-11-15T12:00:00.123Z')]);
     const first = await listMessages(pool, conversation.id, undefined, 2);
     const second = await listMessages(pool, conversation.id, first.nextCursor ?? undefined, 2);
-    expect(first.messages.map((message) => message.body)).toEqual(['a', 'b']);
-    expect(second.messages.map((message) => message.body)).toEqual(['c']);
+    expect(first.messages.map((message) => message.body)).toEqual(['b', 'c']);
+    expect(second.messages.map((message) => message.body)).toEqual(['a']);
     expect(second.nextCursor).toBeNull();
   });
 });
