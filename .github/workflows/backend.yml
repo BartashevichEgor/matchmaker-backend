@@ -49,3 +49,11 @@ jobs:
         run: npm test
         env:
           CHAT_TEST_DATABASE_URL: postgresql://matchmaker:ci-test-password@127.0.0.1:5432/matchmaker_chat_test
+      - name: Test full matching-to-chat workflow
+        working-directory: chat-service
+        run: npm test -- tests/e2e.test.ts
+        env:
+          CHAT_TEST_DATABASE_URL: postgresql://matchmaker:ci-test-password@127.0.0.1:5432/matchmaker_chat_test
+          MATCHMAKER_TEST_DATABASE_URL: postgresql+psycopg://matchmaker:ci-test-password@127.0.0.1:5432/matchmaker_test
+          MATCHMAKER_API_DATABASE_URL: postgresql+psycopg://matchmaker:ci-test-password@127.0.0.1:5432/matchmaker_test
+          JWT_SECRET: test-only-secret-not-for-any-real-deployment-12345
