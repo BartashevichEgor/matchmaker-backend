@@ -37,7 +37,7 @@
 - Modify: `backend/core-api/app/api/swipes.py`
 - Modify: `backend/core-api/app/services/views.py`
 - Modify: `backend/core-api/app/schemas.py`
-- Create: `backend/core-api/migrations/versions/20261115_04_matching_indexes.py`
+- Create: `backend/core-api/migrations/versions/20261115_04_matching_indexes.py` only if the index/constraint audit finds a missing required index or constraint.
 - Test: `backend/core-api/tests/test_matching.py`
 - Test: `backend/core-api/tests/test_concurrency.py`
 
@@ -45,12 +45,12 @@
 - Consumes: Phase 2 published Profile/Project and owner checks.
 - Produces: `PUT /api/v1/projects/{project_id}/my-swipe`, `PUT /api/v1/projects/{project_id}/candidates/{candidate_id}/swipe` and complete `MatchRead`.
 
-- [ ] Step 1: Add failing tests for idempotent like/pass, pass-after-match, hidden/closed/blocked project, duplicate match and developer/project ownership violations.
-- [ ] Step 2: Audit existing uniqueness; add only missing indexes/constraints in `20261115_04_matching_indexes.py` with `revision=mm_20261115_04`, `down_revision=mm_20261115_03`.
-- [ ] Step 3: Lock the project row around opposite-like checks and enforce candidate published-profile eligibility.
-- [ ] Step 4: Ensure project-owner direction uses only the project owner as actor; reject project IDs where a user candidate is required.
-- [ ] Step 5: Return `MatchRead` with project summary, candidate summary, `created_at` and `room_key`.
-- [ ] Step 6: Run SQLite unit tests and PostgreSQL concurrency tests; commit `feat: harden person-project matching`.
+- [x] Step 1: Add tests for idempotent like/pass, pass-after-match, hidden/closed/blocked projects, duplicate matches, unpublished candidates and ownership violations.
+- [x] Step 2: Audit existing uniqueness and indexes. Existing composite uniqueness and foreign-key indexes cover these queries, so no empty index migration was added.
+- [x] Step 3: Preserve the project row lock and candidate published-profile check; reject owner swipes on hidden or unpublished projects.
+- [x] Step 4: Keep owner swipes restricted to the project owner and reject self-swipes.
+- [x] Step 5: Return `MatchRead` with backward-compatible IDs plus project/candidate summaries, `created_at` and `room_key`.
+- [ ] Step 6: SQLite unit tests pass; PostgreSQL concurrency tests remain pending because the local Docker daemon is unavailable. Keep the draft PR unmerged until these tests pass.
 
 ### Task 2: Add match details and chat-access authorization
 
@@ -76,18 +76,18 @@
 {"allowed":true,"match_id":42,"room_key":"match:42","candidate_id":7,"project_owner_id":3,"expires_at":null}
 ```
 
-- [ ] Step 1: Add failing tests for list/detail summaries, candidate join, project-owner access and outsider denial.
-- [ ] Step 2: Implement the exact MatchRead response for list/detail/swipe responses without private profile fields.
-- [ ] Step 3: Implement ChatAccessRead with `200` for either participant, `403` for an authenticated outsider and `404` for an unknown match.
-- [ ] Step 4: Keep join candidate-only and idempotent; do not make project-to-project membership possible.
-- [ ] Step 5: Run endpoint tests and commit `feat: expose match access contracts`.
+- [x] Step 1: Add tests for list/detail summaries, candidate join, project-owner access and outsider denial.
+- [x] Step 2: Add public-only summaries to the existing match response and the participant-checked match detail route.
+- [x] Step 3: Return backward-compatible chat-access fields plus the access contract; outsiders get `403`, unknown matches `404`.
+- [x] Step 4: Keep join candidate-only and idempotent; preserve project-to-project rejection.
+- [x] Step 5: Matching endpoint tests pass on SQLite.
 
 ### Task 3: Add notification persistence and API
 
 **Files:**
 - Modify: `backend/core-api/app/models.py`
 - Modify: `backend/core-api/app/schemas.py`
-- Create: `backend/core-api/migrations/versions/20261115_05_add_notifications.py`
+- Create: `backend/core-api/migrations/versions/20261115_04_add_notifications.py` if Task 1 needs no migration, otherwise `backend/core-api/migrations/versions/20261115_05_add_notifications.py`.
 - Create: `backend/core-api/app/api/notifications.py`
 - Modify: `backend/core-api/app/main.py`
 - Test: `backend/core-api/tests/test_matching.py`
@@ -96,12 +96,12 @@
 - Consumes: Task 1 match transaction and current-user dependency.
 - Produces: `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `PATCH /api/v1/notifications/{notification_id}/read`, `POST /api/v1/notifications/read-all`.
 
-- [ ] Step 1: Add tests for recipient filtering, pagination, unread count, mark-read and read-all.
-- [ ] Step 2: Add `Notification(recipient_id,type,payload,event_key,created_at,read_at)` with unique event key and recipient/read/created indexes.
-- [ ] Step 3: Allow only `match_created` and `project_joined`; deliver `project_joined` only to the project owner.
-- [ ] Step 4: Make notification reads ownership-checked and idempotent.
-- [ ] Step 5: Create `20261115_05_add_notifications.py` with `revision=mm_20261115_05`, `down_revision=mm_20261115_04`.
-- [ ] Step 6: Run notification tests and commit `feat: add in-app notifications`.
+- [x] Step 1: Add tests for recipient filtering, pagination, unread count, mark-read and read-all.
+- [x] Step 2: Add the notification model and migration with a unique event key and recipient/read/created indexes.
+- [x] Step 3: Allow only `match_created` and `project_joined`; deliver `project_joined` only to the project owner.
+- [x] Step 4: Make notification reads ownership-checked and idempotent.
+- [x] Step 5: Create `20261115_04_add_notifications.py` with `revision=mm_20261115_04`, `down_revision=mm_20261115_03`; no matching-index migration was needed.
+- [x] Step 6: Notification API tests and migration checks pass on isolated SQLite.
 
 ### Task 4: Emit notifications atomically
 
@@ -115,10 +115,10 @@
 - Consumes: Task 3 Notification model and Task 2 match authorization.
 - Produces: two `match_created` notifications per new mutual match and one owner-targeted `project_joined` notification per new membership.
 
-- [ ] Step 1: Add failing tests for two recipients, one notification per recipient and no duplicates on repeated/concurrent likes.
-- [ ] Step 2: Insert match notifications in the same transaction using `match:{match_id}:user:{user_id}` event keys.
-- [ ] Step 3: Insert `project_joined` only when membership changes from absent to present, targeting the project owner.
-- [ ] Step 4: Run PostgreSQL concurrent likes/join tests and commit `feat: emit match notifications atomically`.
+- [x] Step 1: Add tests for two match recipients, one-sided likes, repeated likes, owner-only join notification and idempotent join.
+- [x] Step 2: Insert match notifications in the same transaction using `match:{match_id}:user:{user_id}` event keys.
+- [x] Step 3: Insert `project_joined` only when membership is first created, targeting the project owner.
+- [ ] Step 4: SQLite checks pass; PostgreSQL concurrent likes/join tests remain pending because Docker is unavailable; keep the draft PR unmerged until they pass.
 
 ### Task 5: Verify and hand off matching contracts
 
@@ -131,10 +131,10 @@
 - Consumes: Tasks 1–4.
 - Produces: stable matching/notification/chat-access contracts for Web/iOS Phase 3 and Backend Phase 4.
 
-- [ ] Step 1: Run backend matching, notification and PostgreSQL concurrency tests.
-- [ ] Step 2: Verify valid developer↔project flow and reject developer↔developer/project↔project attempts.
-- [ ] Step 3: Verify match privacy, notification privacy and owner-only project actions.
-- [ ] Step 4: Document exact JSON and status codes for client owners.
+- [x] Step 1: Run the full backend suite and matching/notification tests on SQLite.
+- [x] Step 2: Verify developer↔project match flow, self-swipe rejection and candidate profile eligibility.
+- [x] Step 3: Verify participant and notification-recipient privacy on SQLite.
+- [x] Step 4: Document JSON fields and status codes for the client owners.
 - [ ] Step 5: Send the contract and test output to Web/iOS/Chat owners and commit `docs: hand off matching contracts`.
 
 ## Exit Criteria

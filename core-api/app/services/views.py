@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app import schemas as s
-from app.models import Profile, ProfileSkill, ProjectRole, ProjectSkill, User
+from app.models import Match, Profile, ProfileSkill, Project, ProjectRole, ProjectSkill, Role, User
 
 
 def profile_for(db, user_id):
@@ -58,14 +58,53 @@ def project_view(db, project):
     )
 
 
-def match_view(match):
-    return s.MatchRead(
-        id=match.id,
-        project_id=match.project_id,
-        candidate_id=match.candidate_id,
-        created_at=match.created_at,
-        room_key=f"match:{match.id}",
-    )
+def match_views(db, matches):
+    if not matches:
+        return []
+    rows = db.execute(
+        select(Match, Project, Profile, User, Role)
+        .join(Project, Project.id == Match.project_id)
+        .join(User, User.id == Match.candidate_id)
+        .outerjoin(Profile, Profile.user_id == User.id)
+        .outerjoin(Role, Role.id == Profile.role_id)
+        .where(Match.id.in_([match.id for match in matches]))
+    ).all()
+    views = {}
+    for match, project, profile, user, role in rows:
+        display_name = (
+            " ".join(
+                value
+                for value in (profile.first_name if profile else "", profile.last_name if profile else "")
+                if value
+            ).strip()
+            or user.username
+        )
+        views[match.id] = s.MatchRead(
+            id=match.id,
+            project_id=project.id,
+            candidate_id=user.id,
+            created_at=match.created_at,
+            room_key=f"match:{match.id}",
+            project=s.MatchProjectSummary(
+                id=project.id,
+                title=project.title,
+                owner_id=project.owner_id,
+                kind=project.kind,
+            ),
+            candidate=s.MatchCandidateSummary(
+                user_id=user.id,
+                display_name=display_name,
+                headline=role.name if role else None,
+                avatar_url=None,
+            ),
+        )
+    if len(views) != len(matches):
+        raise HTTPException(404, "Match not found")
+    return [views[match.id] for match in matches]
+
+
+def match_view(db, match):
+    return match_views(db, [match])[0]
 
 
 def ensure_ids(db, model, ids):
