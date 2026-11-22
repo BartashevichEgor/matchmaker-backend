@@ -170,8 +170,14 @@ def test_recommendations_and_match_permissions(client, account, db):
     access = client.get(f"/api/v1/matches/{match['id']}/chat-access", headers=headers)
     assert access.status_code == 200
     access_data = access.json()
+    assert access_data["current_user_id"] == candidate["id"]
     assert access_data.pop("created_at")
-    expected_access = match | {"allowed": True, "project_owner_id": owner["id"], "expires_at": None}
+    expected_access = match | {
+        "allowed": True,
+        "current_user_id": candidate["id"],
+        "project_owner_id": owner["id"],
+        "expires_at": None,
+    }
     expected_access.pop("created_at")
     assert access_data == expected_access
     assert client.get("/api/v1/matches", headers=outsider).json() == []

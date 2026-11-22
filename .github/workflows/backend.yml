@@ -31,3 +31,21 @@ jobs:
       - run: python -m pytest -q
         env:
           MATCHMAKER_TEST_DATABASE_URL: postgresql+psycopg://matchmaker:ci-test-password@127.0.0.1:5432/matchmaker_test
+      - name: Create chat test database
+        run: PGPASSWORD=ci-test-password psql -h 127.0.0.1 -U matchmaker -d matchmaker_test -c 'CREATE DATABASE matchmaker_chat_test'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: chat-service/package-lock.json
+      - name: Install chat dependencies
+        working-directory: chat-service
+        run: npm ci
+      - name: Check chat types and build
+        working-directory: chat-service
+        run: npm run typecheck && npm run build
+      - name: Test chat service
+        working-directory: chat-service
+        run: npm test
+        env:
+          CHAT_TEST_DATABASE_URL: postgresql://matchmaker:ci-test-password@127.0.0.1:5432/matchmaker_chat_test

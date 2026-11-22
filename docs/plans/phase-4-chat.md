@@ -15,6 +15,7 @@
 - Service code lives under `backend/chat-service`; it is not frontend code.
 - WebSocket authentication is the first JSON message, never a query parameter.
 - FastAPI authorization endpoint: `GET /api/v1/matches/{match_id}/chat-access`.
+- ChatAccessRead.current_user_id identifies which participant's unread state the service must read or update.
 - Chat database is separate from FastAPI tables; migrations are restart-safe.
 - Messages are bounded to 4000 characters and deduplicated by `(sender_user_id, client_message_id)`.
 - Unread count excludes the current user’s own messages and uses a per-user conversation read cursor.

@@ -361,6 +361,7 @@ class MatchRead(Output):
 
 class ChatAccessRead(MatchRead):
     allowed: bool
+    current_user_id: int
     project_owner_id: int
     expires_at: datetime | None
 

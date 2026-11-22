@@ -111,10 +111,43 @@ API принимает JSON. Для защищённых методов пере
 
 ## Интеграция чата
 
-Backend Phase 3 предоставляет `GET /api/v1/matches/{id}/chat-access` для
-проверки участника мэтча и выдачи `room_key`. Полный отдельный сервис чата,
-хранение сообщений, REST/WebSocket-протокол и повторная авторизация относятся
-к Backend Phase 4 и в текущем backend baseline не реализованы.
+FastAPI предоставляет `GET /api/v1/matches/{id}/chat-access` для проверки
+участника мэтча и выдачи `room_key`. Отдельный чат-сервис, его REST и
+WebSocket-протокол описаны ниже.
+
+Ответ chat-access включает current_user_id — ID участника, чей access token был
+проверен. Это поле позволяет чат-сервису вычислять unread-счётчик текущего
+пользователя, не раскрывая состояние собеседника.
+
+### Chat REST
+
+Все REST-запросы идут на порт чат-сервиса и требуют Authorization: Bearer
+<access_token>. Сервис сам повторно проверяет доступ к мэтчу через FastAPI перед
+каждым чтением или изменением.
+
+- GET /chat/conversations — список мэтчей, доступных текущему пользователю,
+  последний message и его unread_count.
+- GET /chat/conversations/{conversation_id}/messages?limit=50&cursor=... —
+  история по курсору; limit от 1 до 100, ответ содержит messages,
+  next_cursor и unread_count.
+- POST /chat/conversations/{conversation_id}/messages —
+  JSON {"client_message_id":"c-123","body":"Hello"}; тело до 4000
+  символов. Повтор с тем же ID подтверждает исходное сообщение без дубля.
+- POST /chat/conversations/{conversation_id}/read — отмечает прочитанными
+  сообщения, доступные на момент операции, и возвращает новый unread_count.
+
+ID диалога имеет вид match:42. Недействительный токен получает 401, участник,
+не входящий в мэтч, — 403, отсутствующий мэтч — 404.
+
+### Chat WebSocket
+
+Подключение: WS /chat/ws. Токен нельзя передавать в URL. Первым сообщением
+клиент отправляет {"type":"authenticate","access_token":"...","match_id":42}.
+После authenticated клиент использует send с client_message_id и body либо
+read с last_read_message_id. Сервер возвращает message, message_ack, read или
+безопасный error code. Доступ проверяется при подключении и перед каждой
+отправкой/отметкой прочитанного; неподтверждённые соединения закрываются через
+5 секунд.
 
 ## Алгоритм подбора
 
