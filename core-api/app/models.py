@@ -48,6 +48,7 @@ class Profile(Base):
     __table_args__ = (
         CheckConstraint("visibility IN ('draft', 'published', 'hidden')", name="ck_profile_visibility"),
         CheckConstraint("work_format IN ('remote', 'hybrid', 'onsite')", name="ck_profile_work_format"),
+        Index("ix_profiles_visibility_role_work_format", "visibility", "role_id", "work_format"),
     )
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
@@ -77,7 +78,10 @@ class Skill(Base):
 
 class ProfileSkill(Base):
     __tablename__ = "profile_skills"
-    __table_args__ = (CheckConstraint("level BETWEEN 1 AND 5", name="ck_profile_skill_level"),)
+    __table_args__ = (
+        CheckConstraint("level BETWEEN 1 AND 5", name="ck_profile_skill_level"),
+        Index("ix_profile_skills_skill_profile", "skill_id", "profile_id"),
+    )
     profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
     skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id", ondelete="RESTRICT"), primary_key=True)
     level: Mapped[int] = mapped_column(Integer, default=1)
@@ -92,6 +96,7 @@ class Project(Base):
         CheckConstraint("work_format IN ('remote', 'hybrid', 'onsite')", name="ck_project_work_format"),
         CheckConstraint("commitment IN ('full_time', 'part_time', 'flexible')", name="ck_project_commitment"),
         UniqueConstraint("owner_id", name="uq_project_owner"),
+        Index("ix_projects_catalog", "visibility", "status", "updated_at", "id"),
     )
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
@@ -112,6 +117,7 @@ class Project(Base):
 
 class SavedProfile(Base):
     __tablename__ = "saved_profiles"
+    __table_args__ = (Index("ix_saved_profiles_user_created", "user_id", "created_at"),)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     target_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
@@ -119,6 +125,7 @@ class SavedProfile(Base):
 
 class SavedProject(Base):
     __tablename__ = "saved_projects"
+    __table_args__ = (Index("ix_saved_projects_user_created", "user_id", "created_at"),)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
@@ -126,7 +133,10 @@ class SavedProject(Base):
 
 class ProjectSkill(Base):
     __tablename__ = "project_skills"
-    __table_args__ = (CheckConstraint("weight BETWEEN 1 AND 5", name="ck_project_skill_weight"),)
+    __table_args__ = (
+        CheckConstraint("weight BETWEEN 1 AND 5", name="ck_project_skill_weight"),
+        Index("ix_project_skills_skill_project", "skill_id", "project_id"),
+    )
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id", ondelete="RESTRICT"), primary_key=True)
     weight: Mapped[int] = mapped_column(Integer, default=1)
@@ -134,6 +144,7 @@ class ProjectSkill(Base):
 
 class ProjectRole(Base):
     __tablename__ = "project_roles"
+    __table_args__ = (Index("ix_project_roles_role_project", "role_id", "project_id"),)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id", ondelete="RESTRICT"), primary_key=True)
 
@@ -142,6 +153,7 @@ class Swipe(Base):
     __tablename__ = "swipes"
     __table_args__ = (
         UniqueConstraint("project_id", "candidate_id", "direction", name="uq_swipe_direction"),
+        Index("ix_swipes_candidate_direction_project", "candidate_id", "direction", "project_id"),
         CheckConstraint(
             "direction IN ('student_to_project', 'project_to_student')", name="ck_swipe_direction"
         ),
@@ -167,6 +179,7 @@ class Match(Base):
 
 class ProjectMember(Base):
     __tablename__ = "project_members"
+    __table_args__ = (Index("ix_project_members_user_project", "user_id", "project_id"),)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

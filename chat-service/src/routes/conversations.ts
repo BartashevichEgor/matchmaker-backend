@@ -9,6 +9,7 @@ import { markRead, unreadCount } from '../read-state.js';
 
 type Backend = {
   getChatAccess(matchId: number, token: string): Promise<ChatAccess>;
+  getChatSendAccess(matchId: number, token: string): Promise<ChatAccess>;
   listMatches(token: string): Promise<MatchSummary[]>;
 };
 
@@ -19,20 +20,22 @@ function bearer(request: FastifyRequest) {
   return match[1]!;
 }
 
-async function authorized(request: FastifyRequest, backend: Backend, pool: DbPool, id: string) {
+async function authorized(request: FastifyRequest, backend: Backend, pool: DbPool, id: string, sending = false) {
   const match = /^match:([1-9]\d{0,17})$/.exec(id);
   if (!match) throw new BackendError(404);
   const matchId = Number(match[1]);
   if (!Number.isSafeInteger(matchId)) throw new BackendError(404);
-  const access = await backend.getChatAccess(matchId, bearer(request));
+  const token = bearer(request);
+  const access = sending ? await backend.getChatSendAccess(matchId, token) : await backend.getChatAccess(matchId, token);
   const conversation = await getOrCreateConversation(pool, matchId);
   return { access, conversation };
 }
 
-function sendError(reply: { code(status: number): { send(body: unknown): unknown } }, error: unknown) {
+function sendError(reply: { code(status: number): { send(body: unknown): unknown }; header(name: string, value: string): unknown }, error: unknown) {
   if (error instanceof BackendError) {
-    const status = [401, 403, 404].includes(error.status) ? error.status : 503;
-    return reply.code(status).send({ error: status === 401 ? 'unauthorized' : status === 403 ? 'forbidden' : status === 404 ? 'not_found' : 'unavailable' });
+    const status = [401, 403, 404, 429].includes(error.status) ? error.status : 503;
+    if (status === 429) reply.header('retry-after', error.retryAfter ?? '60');
+    return reply.code(status).send({ error: status === 401 ? 'unauthorized' : status === 403 ? 'forbidden' : status === 404 ? 'not_found' : status === 429 ? 'rate_limited' : 'unavailable' });
   }
   if (error instanceof z.ZodError || error instanceof TypeError || error instanceof RangeError) return reply.code(422).send({ error: 'invalid_request' });
   return reply.code(500).send({ error: 'internal_error' });
@@ -98,7 +101,7 @@ export function registerConversationRoutes(app: FastifyInstance, pool: DbPool, b
   app.post<{ Params: { conversation_id: string } }>('/chat/conversations/:conversation_id/messages', async (request, reply) => {
     try {
       const input = messageBody.parse(request.body);
-      const { access, conversation } = await authorized(request, backend, pool, request.params.conversation_id);
+      const { access, conversation } = await authorized(request, backend, pool, request.params.conversation_id, true);
       const result = await insertMessage(pool, conversation.id, access.current_user_id, input.client_message_id, input.body);
       return reply.code(result.duplicate ? 200 : 201).send({ message: publicMessage(result.message), duplicate: result.duplicate, unread_count: await unreadCount(pool, conversation.id, access.current_user_id) });
     } catch (error) {

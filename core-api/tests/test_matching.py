@@ -1,6 +1,9 @@
+from types import SimpleNamespace
+
 import pytest
 from sqlalchemy import func, select
 
+from app.cli import seed
 from app.models import Match, Notification, Project, ProjectMember, User
 from app.services.scoring import cosine
 
@@ -47,6 +50,16 @@ def test_second_project_is_rejected(client, account):
         json={"title": "Second project", "description": "A second project description."},
     )
     assert result.status_code == 409
+
+
+def test_demo_seed_is_idempotent_and_respects_one_project_per_owner(db, monkeypatch):
+    monkeypatch.setattr("app.core.config.get_settings", lambda: SimpleNamespace(environment="local"))
+    seed()
+    seed()
+
+    owner = db.scalar(select(User).where(User.email == "demo@matchmaker.local"))
+    assert owner is not None
+    assert db.scalar(select(func.count()).select_from(Project).where(Project.owner_id == owner.id)) == 1
 
 
 def test_profile_validation_and_privacy(client, account):
@@ -97,7 +110,7 @@ def test_profile_validation_and_privacy(client, account):
     )
 
 
-def test_recommendations_and_match_permissions(client, account, db):
+def test_recommendations_and_match_permissions(client, account, db, monkeypatch):
     owner, owner_headers, _ = account("owner@example.com")
     candidate, headers, _ = account("candidate@example.com")
     _, outsider, _ = account("outsider@example.com")
@@ -180,6 +193,20 @@ def test_recommendations_and_match_permissions(client, account, db):
     }
     expected_access.pop("created_at")
     assert access_data == expected_access
+    send_access = client.post(f"/api/v1/matches/{match['id']}/chat-send-access", headers=headers)
+    assert send_access.status_code == 200
+    assert send_access.json()["current_user_id"] == candidate["id"]
+    assert client.post(f"/api/v1/matches/{match['id']}/chat-send-access", headers=outsider).status_code == 403
+
+    def block_chat_send(*_args, **_kwargs):
+        from fastapi import HTTPException
+
+        raise HTTPException(429, "Too many requests. Try later.", headers={"Retry-After": "60"})
+
+    monkeypatch.setattr("app.api.swipes.limit", block_chat_send)
+    limited = client.post(f"/api/v1/matches/{match['id']}/chat-send-access", headers=headers)
+    assert limited.status_code == 429
+    assert limited.headers["retry-after"] == "60"
     assert client.get("/api/v1/matches", headers=outsider).json() == []
     assert client.post(f"/api/v1/matches/{match['id']}/join", headers=headers).status_code == 200
     assert client.post(f"/api/v1/matches/{match['id']}/join", headers=headers).status_code == 200

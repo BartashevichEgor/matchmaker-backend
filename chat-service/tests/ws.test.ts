@@ -39,7 +39,7 @@ describe('authenticated chat WebSocket', () => {
         return { rows: [] };
       }),
     } as unknown as Pool;
-    const backend = { health: vi.fn().mockResolvedValue(true), getChatAccess: vi.fn().mockResolvedValue(authorized), listMatches: vi.fn() };
+    const backend = { health: vi.fn().mockResolvedValue(true), getChatAccess: vi.fn().mockResolvedValue(authorized), getChatSendAccess: vi.fn().mockResolvedValue(authorized), listMatches: vi.fn() };
     app = await createServer(config, pool, backend as never);
     const address = await app.listen({ host: '127.0.0.1', port: 0 });
     const socket = new WebSocket(address.replace('http', 'ws') + '/chat/ws');
@@ -52,7 +52,8 @@ describe('authenticated chat WebSocket', () => {
     const ack = event(socket);
     socket.send(JSON.stringify({ type: 'send', client_message_id: 'c-1', body: 'Hello' }));
     expect(await ack).toMatchObject({ type: 'message_ack', duplicate: false, message: { body: 'Hello' } });
-    expect(backend.getChatAccess).toHaveBeenCalledTimes(2);
+    expect(backend.getChatAccess).toHaveBeenCalledTimes(1);
+    expect(backend.getChatSendAccess).toHaveBeenCalledTimes(1);
 
     socket.close();
     const reconnected = new WebSocket(address.replace('http', 'ws') + '/chat/ws');
@@ -61,7 +62,8 @@ describe('authenticated chat WebSocket', () => {
     const reauthenticated = event(reconnected);
     reconnected.send(JSON.stringify({ type: 'authenticate', access_token: 'access-secret', match_id: 42 }));
     expect(await reauthenticated).toEqual({ type: 'authenticated', conversation_id: 'match:42' });
-    expect(backend.getChatAccess).toHaveBeenCalledTimes(3);
+    expect(backend.getChatAccess).toHaveBeenCalledTimes(2);
+    expect(backend.getChatSendAccess).toHaveBeenCalledTimes(1);
   });
 
   it('rejects an unauthorized match without exposing FastAPI details', async () => {
@@ -86,7 +88,8 @@ describe('authenticated chat WebSocket', () => {
     } as unknown as Pool;
     const backend = {
       health: vi.fn().mockResolvedValue(true),
-      getChatAccess: vi.fn().mockResolvedValueOnce(authorized).mockRejectedValueOnce(new BackendError(401)),
+      getChatAccess: vi.fn().mockResolvedValue(authorized),
+      getChatSendAccess: vi.fn().mockRejectedValue(new BackendError(401)),
       listMatches: vi.fn(),
     };
     app = await createServer(config, pool, backend as never);
@@ -101,6 +104,77 @@ describe('authenticated chat WebSocket', () => {
     socket.send(JSON.stringify({ type: 'send', client_message_id: 'c-1', body: 'too late' }));
     expect(await denied).toEqual({ type: 'error', code: 'unauthorized' });
     expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a retry delay without persisting a message when the sender is rate-limited', async () => {
+    const pool = {
+      query: vi.fn(async (sql: string) => sql.includes('INSERT INTO conversation')
+        ? { rows: [{ id: 'match:42', match_id: 42, created_at: new Date() }] }
+        : { rows: [] }),
+    } as unknown as Pool;
+    const backend = {
+      health: vi.fn().mockResolvedValue(true),
+      getChatAccess: vi.fn().mockResolvedValue(authorized),
+      getChatSendAccess: vi.fn().mockRejectedValue(new BackendError(429, '60')),
+      listMatches: vi.fn(),
+    };
+    app = await createServer(config, pool, backend as never);
+    const address = await app.listen({ host: '127.0.0.1', port: 0 });
+    const socket = new WebSocket(address.replace('http', 'ws') + '/chat/ws');
+    sockets.push(socket);
+    await new Promise<void>((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
+    const authenticated = event(socket);
+    socket.send(JSON.stringify({ type: 'authenticate', access_token: 'access-secret', match_id: 42 }));
+    await authenticated;
+    const denied = event(socket);
+    socket.send(JSON.stringify({ type: 'send', client_message_id: 'limited', body: 'Too fast' }));
+    expect(await denied).toEqual({ type: 'error', code: 'rate_limited', retry_after_seconds: 60 });
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes a recipient socket after FastAPI revokes its session', async () => {
+    const pool = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('INSERT INTO conversation')) return { rows: [{ id: 'match:42', match_id: 42, created_at: new Date() }] };
+        if (sql.includes('INSERT INTO message')) return { rows: [{ id: '1', conversation_id: 'match:42', sender_user_id: '7', client_message_id: 'c-1', body: 'private after revoke', created_at: new Date() }] };
+        if (sql.includes('count(*)')) return { rows: [{ unread_count: 0 }] };
+        return { rows: [] };
+      }),
+    } as unknown as Pool;
+    let ownerChecks = 0;
+    const backend = {
+      health: vi.fn().mockResolvedValue(true),
+      getChatAccess: vi.fn(async (_id: number, token: string) => {
+        if (token === 'owner-token' && ownerChecks++ > 0) throw new BackendError(401);
+        return token === 'owner-token' ? { ...authorized, current_user_id: 3 } : authorized;
+      }),
+      getChatSendAccess: vi.fn().mockResolvedValue(authorized),
+      listMatches: vi.fn(),
+    };
+    app = await createServer(config, pool, backend as never);
+    const address = await app.listen({ host: '127.0.0.1', port: 0 });
+    const candidateSocket = new WebSocket(address.replace('http', 'ws') + '/chat/ws');
+    const ownerSocket = new WebSocket(address.replace('http', 'ws') + '/chat/ws');
+    sockets.push(candidateSocket, ownerSocket);
+    await Promise.all([candidateSocket, ownerSocket].map((socket) => new Promise<void>((resolve, reject) => {
+      socket.once('open', resolve);
+      socket.once('error', reject);
+    })));
+    const candidateAuthenticated = event(candidateSocket);
+    candidateSocket.send(JSON.stringify({ type: 'authenticate', access_token: 'candidate-token', match_id: 42 }));
+    await candidateAuthenticated;
+    const ownerAuthenticated = event(ownerSocket);
+    ownerSocket.send(JSON.stringify({ type: 'authenticate', access_token: 'owner-token', match_id: 42 }));
+    await ownerAuthenticated;
+
+    const revoked = event(ownerSocket);
+    const ownerClosed = new Promise<number>((resolve) => ownerSocket.once('close', (code) => resolve(code)));
+    const ack = event(candidateSocket);
+    candidateSocket.send(JSON.stringify({ type: 'send', client_message_id: 'c-1', body: 'private after revoke' }));
+    expect(await ack).toMatchObject({ type: 'message_ack' });
+    expect(await revoked).toEqual({ type: 'error', code: 'unauthorized' });
+    expect(await ownerClosed).toBe(4401);
+    expect(backend.getChatAccess).toHaveBeenCalledTimes(3);
   });
 
   it('rejects browser WebSocket origins outside the configured allowlist', async () => {

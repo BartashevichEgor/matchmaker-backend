@@ -7,6 +7,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app import schemas as s
 from app.api.deps import Db, VerifiedUser
+from app.core.limits import limit as enforce_limit
 from app.models import Profile, Project, SavedProfile, SavedProject, User
 from app.services.views import project_view, public_profile
 
@@ -21,6 +22,7 @@ def list_favorites(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
+    enforce_limit(f"favorites:user:{user.id}", 60, 60)
     if kind == "profile":
         rows = db.execute(
             select(Profile, User)
@@ -54,6 +56,7 @@ def list_favorites(
 
 @router.put("/{kind}/{target_id}", status_code=204)
 def save_favorite(kind: Literal["profile", "project"], target_id: int, user: VerifiedUser, db: Db):
+    enforce_limit(f"favorites:user:{user.id}", 60, 60)
     if target_id <= 0:
         raise HTTPException(404, "Card not found")
     if kind == "profile":
@@ -95,6 +98,7 @@ def save_favorite(kind: Literal["profile", "project"], target_id: int, user: Ver
 
 @router.delete("/{kind}/{target_id}", status_code=204)
 def remove_favorite(kind: Literal["profile", "project"], target_id: int, user: VerifiedUser, db: Db):
+    enforce_limit(f"favorites:user:{user.id}", 60, 60)
     model, target_column = (
         (SavedProfile, SavedProfile.target_user_id)
         if kind == "profile"

@@ -22,10 +22,26 @@ CSRF_COOKIE_NAME = "matchmaker_csrf"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 
 
-def throttle(request: Request, action: str, email: str):
+def normalized_email(email: str) -> str:
+    return email.strip().casefold()
+
+
+def throttle(request: Request, action: str, email: str, user_id: int | None = None):
     address = request.client.host if request.client else "unknown"
-    limit(f"{action}:ip:{address}", 30, 300)
-    limit(f"{action}:email:{email}", 5, 300)
+    email_key = normalized_email(email)
+    if action == "login":
+        limit(f"login:ip-email:{address}:{email_key}", 5, 900)
+    elif action in {"verify", "verify-link"}:
+        limit(f"verification-check:email:{email_key}", 5, 600)
+        if user_id is not None:
+            limit(f"verification-check:user:{user_id}", 5, 600)
+    elif action in {"register", "resend"}:
+        limit(f"verification-send:email:{email_key}:ip:{address}", 3, 900)
+        if user_id is not None:
+            limit(f"verification-send:user:{user_id}:ip:{address}", 3, 900)
+    else:
+        limit(f"{action}:ip:{address}", 30, 300)
+        limit(f"{action}:email:{email_key}", 5, 300)
 
 
 def make_code(db, user, purpose):
@@ -295,8 +311,8 @@ async def register(data: s.Register, request: Request, db: Db):
 
 @router.post("/verify-email", response_model=s.Message)
 def verify_email(data: s.Verify, request: Request, db: Db):
-    throttle(request, "verify", data.email)
     user = db.scalar(select(User).where(User.email == data.email))
+    throttle(request, "verify", data.email, user.id if user else None)
     if not user or not user.is_active:
         raise HTTPException(400, "Invalid or expired verification credential")
     consume_credential(db, user, "verify", data.code)
@@ -306,8 +322,8 @@ def verify_email(data: s.Verify, request: Request, db: Db):
 
 @router.post("/verify-email-link", response_model=s.Message)
 def verify_email_link(data: s.VerifyLinkInput, request: Request, db: Db):
-    throttle(request, "verify-link", data.email)
     user = db.scalar(select(User).where(User.email == data.email))
+    throttle(request, "verify-link", data.email, user.id if user else None)
     if not user or not user.is_active:
         raise HTTPException(400, "Invalid or expired verification credential")
     consume_credential(db, user, "verify_link", data.token)
@@ -317,8 +333,8 @@ def verify_email_link(data: s.VerifyLinkInput, request: Request, db: Db):
 
 @router.post("/resend-verification", response_model=s.Message)
 async def resend(data: s.EmailInput, request: Request, db: Db):
-    throttle(request, "resend", data.email)
     user = db.scalar(select(User).where(User.email == data.email))
+    throttle(request, "resend", data.email, user.id if user else None)
     if user and user.is_active and not user.is_verified:
         code, link_token = make_verification_credentials(db, user)
         db.commit()

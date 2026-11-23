@@ -4,6 +4,7 @@ from sqlalchemy import or_, select
 from app import schemas as s
 from app.api.deps import Db, VerifiedUser
 from app.api.projects import accessible_project
+from app.core.limits import limit
 from app.models import Match, Notification, Profile, Project, ProjectMember, Swipe, User
 from app.services.views import match_view, match_views
 
@@ -68,12 +69,14 @@ def record_swipe(db, project, candidate_id, actor, direction, decision):
 
 @router.put("/projects/{project_id}/my-swipe", response_model=s.SwipeRead)
 def student_swipe(project_id: int, data: s.SwipeInput, user: VerifiedUser, db: Db):
+    limit(f"swipes:user:{user.id}", 120, 60)
     project = accessible_project(db, project_id, user, lock=True)
     return record_swipe(db, project, user.id, user, "student_to_project", data.decision)
 
 
 @router.put("/projects/{project_id}/candidates/{candidate_id}/swipe", response_model=s.SwipeRead)
 def owner_swipe(project_id: int, candidate_id: int, data: s.SwipeInput, user: VerifiedUser, db: Db):
+    limit(f"swipes:user:{user.id}", 120, 60)
     # All swipes for one project share a PostgreSQL row lock: simultaneous likes
     # cannot miss one another or create duplicate matches.
     project = accessible_project(db, project_id, user, owner=True, lock=True)
@@ -113,6 +116,10 @@ def match_detail(match_id: int, user: VerifiedUser, db: Db):
 
 @router.get("/matches/{match_id}/chat-access", response_model=s.ChatAccessRead)
 def chat_access(match_id: int, user: VerifiedUser, db: Db):
+    return _chat_access_response(match_id, user, db)
+
+
+def _chat_access_response(match_id: int, user, db):
     match = allowed_match(db, match_id, user)
     project = db.get(Project, match.project_id)
     return s.ChatAccessRead(
@@ -122,6 +129,13 @@ def chat_access(match_id: int, user: VerifiedUser, db: Db):
         project_owner_id=project.owner_id,
         expires_at=None,
     )
+
+
+@router.post("/matches/{match_id}/chat-send-access", response_model=s.ChatAccessRead)
+def chat_send_access(match_id: int, user: VerifiedUser, db: Db):
+    access = _chat_access_response(match_id, user, db)
+    limit(f"chat-send:user:{user.id}", 60, 60)
+    return access
 
 
 @router.post("/matches/{match_id}/join", response_model=s.Message)

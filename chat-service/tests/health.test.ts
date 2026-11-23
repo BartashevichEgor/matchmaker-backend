@@ -125,7 +125,7 @@ describe('health and REST authorization', () => {
         return { rows: [] };
       }),
     } as unknown as Pool;
-    const backend = { health: vi.fn().mockResolvedValue(true), getChatAccess: vi.fn().mockResolvedValue(authorized), listMatches: vi.fn() };
+    const backend = { health: vi.fn().mockResolvedValue(true), getChatAccess: vi.fn().mockResolvedValue(authorized), getChatSendAccess: vi.fn().mockResolvedValue(authorized), listMatches: vi.fn() };
     app = await createServer(config, pool, backend as never);
     const response = await app.inject({
       method: 'POST',
@@ -143,6 +143,52 @@ describe('health and REST authorization', () => {
     });
     expect(retry.statusCode).toBe(200);
     expect(retry.json()).toMatchObject({ message: { id: '2' }, duplicate: true });
+  });
+
+  it('accepts valid 4000-character messages whose UTF-8 body exceeds 8 KiB', async () => {
+    const pool = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('INSERT INTO conversation')) return { rows: [{ id: 'match:42', match_id: 42, created_at: new Date() }] };
+        if (sql.includes('INSERT INTO message')) return { rows: [{ id: '3', conversation_id: 'match:42', sender_user_id: '7', client_message_id: 'unicode', body: '界'.repeat(4000), created_at: new Date() }] };
+        if (sql.includes('count(*)')) return { rows: [{ unread_count: 0 }] };
+        return { rows: [] };
+      }),
+    } as unknown as Pool;
+    const backend = {
+      health: vi.fn().mockResolvedValue(true),
+      getChatAccess: vi.fn().mockResolvedValue(authorized),
+      getChatSendAccess: vi.fn().mockResolvedValue(authorized),
+      listMatches: vi.fn(),
+    };
+    app = await createServer(config, pool, backend as never);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/chat/conversations/match:42/messages',
+      headers: { authorization: 'Bearer candidate-token' },
+      payload: { client_message_id: 'unicode', body: '界'.repeat(4000) },
+    });
+    expect(response.statusCode).toBe(201);
+  });
+
+  it('returns the FastAPI message rate limit and Retry-After to REST clients', async () => {
+    const pool = { query: vi.fn() } as unknown as Pool;
+    const backend = {
+      health: vi.fn().mockResolvedValue(true),
+      getChatAccess: vi.fn().mockResolvedValue(authorized),
+      getChatSendAccess: vi.fn().mockRejectedValue(new BackendError(429, '60')),
+      listMatches: vi.fn(),
+    };
+    app = await createServer(config, pool, backend as never);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/chat/conversations/match:42/messages',
+      headers: { authorization: 'Bearer candidate-token' },
+      payload: { client_message_id: 'limited', body: 'Hello' },
+    });
+    expect(response.statusCode).toBe(429);
+    expect(response.headers['retry-after']).toBe('60');
+    expect(response.json()).toEqual({ error: 'rate_limited' });
+    expect(pool.query).not.toHaveBeenCalled();
   });
 
   it('marks only the current participant read and returns their updated unread count', async () => {

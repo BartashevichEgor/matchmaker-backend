@@ -49,4 +49,8 @@ def limit(key: str, maximum: int, seconds: int):
             while len(_local) > 10000:
                 _local.popitem(last=False)
     if count > maximum:
-        raise HTTPException(429, "Too many requests. Try later.", headers={"Retry-After": str(seconds)})
+        raise HTTPException(
+            429,
+            detail={"error": "rate_limited"},
+            headers={"Retry-After": str(seconds)},
+        )
