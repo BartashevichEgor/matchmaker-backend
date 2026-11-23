@@ -14,7 +14,7 @@ export async function createServer(config: Config, pool: DbPool, backend: Backen
       redact: ['req.headers.authorization', 'req.headers.cookie'],
       serializers: { req: (request) => ({ method: request.method, url: (request.url ?? '').split('?')[0] ?? '' }) },
     },
-    bodyLimit: 8192,
+    bodyLimit: 16 * 1024,
     requestTimeout: 15000,
     connectionTimeout: 10000,
   });

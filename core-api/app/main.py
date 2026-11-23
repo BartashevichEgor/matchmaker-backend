@@ -2,7 +2,7 @@ import sys
 import time
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -102,20 +102,32 @@ async def validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
 
 
+@app.exception_handler(HTTPException)
+async def http_error(request: Request, exc: HTTPException):
+    if exc.status_code == 429:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited"},
+            headers=exc.headers,
+        )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
+
+
 @app.middleware("http")
 async def log_request(request: Request, call_next):
     request_id = uuid4().hex
     started = time.perf_counter()
     try:
         response = await call_next(request)
-    except Exception as exc:
-        logger.error("request={} failure={}", request_id, type(exc).__name__)
-        return JSONResponse(
-            status_code=500, content={"detail": "Internal server error", "request_id": request_id}
+    except Exception:
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "request_id": request_id},
         )
     route = request.scope.get("route")
     path = getattr(route, "path", "static-or-unmatched")
-    logger.info(
+    log = logger.error if response.status_code >= 500 else logger.info
+    log(
         "{} {} status={} duration_ms={:.1f} request={}",
         request.method,
         path,

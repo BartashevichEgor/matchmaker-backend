@@ -32,14 +32,21 @@ services:
   api:
     build: ./core-api
     environment:
-      ENVIRONMENT: local
+      ENVIRONMENT: ${ENVIRONMENT:-local}
       DATABASE_URL: postgresql+psycopg://matchmaker:${POSTGRES_PASSWORD}@db:5432/matchmaker
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in root .env}
       REDIS_URL: redis://redis:6379/0
-      MAIL_MODE: smtp
-      MAIL_SERVER: mailpit
-      MAIL_PORT: 1025
-      MAIL_FROM: noreply@matchmaker.local
+      MAIL_MODE: ${MAIL_MODE:-smtp}
+      MAIL_SERVER: ${MAIL_SERVER:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_FROM: ${MAIL_FROM:-noreply@example.com}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_USE_CREDENTIALS: ${MAIL_USE_CREDENTIALS:-false}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      MAIL_SSL_TLS: ${MAIL_SSL_TLS:-false}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:5173}
+      REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-false}
     ports:
       - '127.0.0.1:8000:8000'
     depends_on:

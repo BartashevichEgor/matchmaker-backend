@@ -1,3 +1,6 @@
+import smtplib
+import ssl
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -7,6 +10,7 @@ from app.core.config import get_settings
 from app.core.limits import redis_client
 
 router = APIRouter(tags=["System"])
+SMTP_PROBE_TIMEOUT_SECONDS = 2
 
 
 @router.get("/ping")
@@ -18,19 +22,58 @@ def ping() -> dict[str, str]:
 @router.get("/api/health", include_in_schema=False, response_model=None)
 def health(db: Db):
     """Return only an operational health signal; never expose dependency errors."""
+    settings = get_settings()
+    dependencies = {"database": "UP", "cache": "UP", "mail": "UP"}
     try:
         # This query deliberately goes through the configured SQLAlchemy engine:
         # it verifies a real connection for both PostgreSQL and SQLite.
         db.execute(text("SELECT 1"))
-        cache = redis_client()
-        if cache:
-            cache.ping()
     except Exception:
-        return JSONResponse(status_code=503, content={"status": "DOWN"})
-    return {
-        "status": "UP",
-        "database": db.bind.dialect.name,
-        "cache": "redis" if cache else "local-memory",
-        "environment": get_settings().environment,
-        "mail": get_settings().mail_mode,
+        dependencies["database"] = "DOWN"
+    try:
+        cache = redis_client()
+    except Exception:
+        dependencies["cache"] = "DOWN"
+    else:
+        if cache:
+            try:
+                cache.ping()
+            except Exception:
+                dependencies["cache"] = "DOWN"
+        else:
+            dependencies["cache"] = "local-memory"
+
+    if settings.mail_mode == "outbox":
+        dependencies["mail"] = "outbox"
+    else:
+        try:
+            if settings.mail_ssl_tls:
+                with smtplib.SMTP_SSL(
+                    settings.mail_server,
+                    settings.mail_port,
+                    timeout=SMTP_PROBE_TIMEOUT_SECONDS,
+                    context=ssl.create_default_context(),
+                ) as smtp:
+                    smtp.ehlo()
+                    smtp.noop()
+            else:
+                with smtplib.SMTP(
+                    settings.mail_server, settings.mail_port, timeout=SMTP_PROBE_TIMEOUT_SECONDS
+                ) as smtp:
+                    smtp.ehlo()
+                    if settings.mail_starttls:
+                        smtp.starttls(context=ssl.create_default_context())
+                        smtp.ehlo()
+                    smtp.noop()
+        except Exception:
+            dependencies["mail"] = "DOWN"
+
+    ready = all(value not in {"DOWN"} for value in dependencies.values())
+    response = {
+        "status": "UP" if ready else "DOWN",
+        "dependencies": dependencies,
+        "environment": settings.environment,
     }
+    if ready:
+        response["database"] = db.bind.dialect.name
+    return response if ready else JSONResponse(status_code=503, content=response)

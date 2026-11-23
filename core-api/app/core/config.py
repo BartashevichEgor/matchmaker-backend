@@ -1,8 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import EmailStr, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,10 +22,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     mail_mode: Literal["outbox", "smtp"] = "outbox"
     mail_server: str = "localhost"
-    mail_port: int = 1025
+    mail_port: int = Field(default=1025, ge=1, le=65535)
     mail_username: str = ""
     mail_password: SecretStr = SecretStr("")
-    mail_from: str = "noreply@example.com"
+    mail_from: EmailStr = "noreply@example.com"
     mail_starttls: bool = False
     mail_ssl_tls: bool = False
     mail_use_credentials: bool = False
@@ -43,8 +44,25 @@ class Settings(BaseSettings):
         if self.environment == "production":
             if not self.database_url.startswith("postgresql+psycopg://"):
                 raise ValueError("Production requires PostgreSQL")
-            if not self.redis_url or self.mail_mode != "smtp":
-                raise ValueError("Production requires Redis and SMTP")
+            if not self.redis_url:
+                raise ValueError("Production requires Redis")
+            try:
+                redis_endpoint = urlsplit(self.redis_url)
+                valid_redis_url = redis_endpoint.scheme in {"redis", "rediss"} and bool(
+                    redis_endpoint.hostname
+                )
+            except ValueError:
+                valid_redis_url = False
+            if not valid_redis_url:
+                raise ValueError("Production requires a valid Redis URL")
+            if self.mail_mode != "smtp":
+                raise ValueError("Production requires SMTP")
+            if not self.mail_server.strip() or self.mail_server.strip().lower() in {
+                "localhost",
+                "127.0.0.1",
+                "::1",
+            }:
+                raise ValueError("Production requires a configured SMTP server")
             if not self.refresh_cookie_secure or not self.web_base_url.startswith("https://"):
                 raise ValueError("Production web auth requires HTTPS and secure refresh cookies")
             if self.mail_use_credentials and not (self.mail_starttls or self.mail_ssl_tls):

@@ -18,6 +18,16 @@ describe('FastAPI chat access client', () => {
     expect(new Headers(init.headers).get('authorization')).toBe('Bearer secret-access');
   });
 
+  it('uses the rate-limited send authorization endpoint for message writes', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(access), { status: 200 }));
+    const client = createBackendClient('http://api:8000', 1000, fetchImpl as typeof fetch);
+    await expect(client.getChatSendAccess(42, 'secret-access')).resolves.toMatchObject({ current_user_id: 7 });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://api:8000/api/v1/matches/42/chat-send-access');
+    expect(init.method).toBe('POST');
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer secret-access');
+  });
+
   it('maps upstream status without reading or returning its response body', async () => {
     const client = createBackendClient('http://api:8000', 1000, vi.fn(async () => new Response('private', { status: 403 })) as typeof fetch);
     await expect(client.getChatAccess(42, 'secret-access')).rejects.toMatchObject({ status: 403 });

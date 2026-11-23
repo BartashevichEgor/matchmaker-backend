@@ -8,6 +8,7 @@ BASE_PRODUCTION = {
     "database_url": "postgresql+psycopg://user:password@db/matchmaker",
     "redis_url": "redis://redis:6379/0",
     "mail_mode": "smtp",
+    "mail_server": "smtp.example.com",
     "refresh_cookie_secure": True,
     "web_base_url": "https://app.example.com",
 }
