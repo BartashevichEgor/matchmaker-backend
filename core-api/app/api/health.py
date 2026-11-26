@@ -55,6 +55,8 @@ def health(db: Db):
                     context=ssl.create_default_context(),
                 ) as smtp:
                     smtp.ehlo()
+                    if settings.mail_use_credentials:
+                        smtp.login(settings.mail_username, settings.mail_password.get_secret_value())
                     smtp.noop()
             else:
                 with smtplib.SMTP(
@@ -64,6 +66,8 @@ def health(db: Db):
                     if settings.mail_starttls:
                         smtp.starttls(context=ssl.create_default_context())
                         smtp.ehlo()
+                    if settings.mail_use_credentials:
+                        smtp.login(settings.mail_username, settings.mail_password.get_secret_value())
                     smtp.noop()
         except Exception:
             dependencies["mail"] = "DOWN"
