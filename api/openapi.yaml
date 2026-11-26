@@ -249,10 +249,68 @@ paths:
       parameters:
         - { name: match_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
       responses: { '200': { description: Подтверждение вступления } }
+  /admin/skills:
+    post:
+      summary: Создать навык (только administrator)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CatalogInput' }
+      responses: { '201': { description: Созданный навык }, '401': { description: Нет JWT }, '403': { description: Нужна роль administrator }, '409': { description: Имя уже существует } }
+  /admin/skills/{item_id}:
+    patch:
+      summary: Переименовать навык (только administrator)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ItemId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CatalogInput' }
+      responses: { '200': { description: Обновлённый навык }, '404': { description: Навык не найден }, '409': { description: Имя уже существует } }
+  /admin/roles:
+    post:
+      summary: Создать роль (только administrator)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CatalogInput' }
+      responses: { '201': { description: Созданная роль }, '401': { description: Нет JWT }, '403': { description: Нужна роль administrator }, '409': { description: Имя уже существует } }
+  /admin/roles/{item_id}:
+    patch:
+      summary: Переименовать роль (только administrator)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ItemId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CatalogInput' }
+      responses: { '200': { description: Обновлённая роль }, '404': { description: Роль не найдена }, '409': { description: Имя уже существует } }
+  /admin/projects/{project_id}/status:
+    patch:
+      summary: Модерировать проект (open или blocked, только administrator)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProjectId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModerationInput' }
+      responses: { '200': { description: Проект с обновлённой модерацией }, '401': { description: Нет JWT }, '403': { description: Нужна роль administrator }, '404': { description: Проект не найден } }
 components:
   parameters:
     ProjectId:
       name: project_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    ItemId:
+      name: item_id
       in: path
       required: true
       schema: { type: integer, minimum: 1 }
@@ -302,6 +360,16 @@ components:
         refresh_token: { type: string }
         token_type: { type: string, default: bearer }
         expires_in: { type: integer }
+    CatalogInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+    ModerationInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [open, blocked] }
     ProfileSkills:
       type: object
       required: [skills]

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="570" viewBox="0 0 1160 570" role="img" aria-label="C4 container diagram for Matchmaker">
+  <style>text{font-family:Arial,sans-serif;fill:#14213d}.title{font-size:28px;font-weight:bold}.label{font-size:18px;font-weight:bold}.body{font-size:14px}.client{fill:#fff4d6;stroke:#b57619;stroke-width:2}.api{fill:#e9f3ff;stroke:#2878b5;stroke-width:2}.data{fill:#e8f7e9;stroke:#2e8b57;stroke-width:2}.chat{fill:#f8eafa;stroke:#9a58a3;stroke-width:2}.line{stroke:#555;stroke-width:2;marker-end:url(#arrow)}</style>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#555"/></marker></defs>
+  <text x="35" y="45" class="title">Matchmaker — C4: Containers</text>
+  <rect x="40" y="220" width="180" height="115" rx="8" class="client"/><text x="90" y="265" class="label">Web client</text><text x="62" y="292" class="body">React + TypeScript</text><text x="62" y="314" class="body">Vite / браузер</text>
+  <rect x="40" y="385" width="180" height="115" rx="8" class="client"/><text x="88" y="430" class="label">KMP client</text><text x="61" y="457" class="body">Android / iOS</text>
+  <rect x="395" y="195" width="225" height="150" rx="8" class="api"/><text x="454" y="240" class="label">Core API</text><text x="423" y="267" class="body">FastAPI / SQLAlchemy</text><text x="422" y="289" class="body">JWT, REST, OpenAPI</text><text x="444" y="311" class="body">health, outbox</text>
+  <rect x="395" y="400" width="225" height="105" rx="8" class="chat"/><text x="439" y="442" class="label">Chat service</text><text x="421" y="469" class="body">Node.js / WebSocket</text><text x="428" y="490" class="body">group-chat MVP</text>
+  <rect x="815" y="220" width="220" height="115" rx="8" class="data"/><text x="878" y="265" class="label">PostgreSQL</text><text x="850" y="292" class="body">users, profiles, skills,</text><text x="862" y="314" class="body">projects, matches</text>
+  <line x1="220" y1="275" x2="395" y2="270" class="line"/><text x="277" y="252" class="body">HTTPS/JSON</text>
+  <line x1="220" y1="442" x2="395" y2="290" class="line"/><text x="256" y="385" class="body">HTTPS/JSON</text>
+  <line x1="220" y1="450" x2="395" y2="450" class="line"/><text x="268" y="432" class="body">WebSocket</text>
+  <line x1="620" y1="270" x2="815" y2="275" class="line"/><text x="683" y="252" class="body">SQL</text>
+  <text x="35" y="545" class="body">Исходник: c4-container.puml. Личные сообщения и file-avatar storage — план, не контейнеры текущего MVP.</text>
+</svg>

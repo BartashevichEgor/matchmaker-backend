@@ -10,5 +10,10 @@
 | [requirements/traceability.md](requirements/traceability.md) | Связь требований с задачами, модулями и тестами. |
 | [release-plan.md](release-plan.md) | План релизов и открытые решения. |
 | [plans](plans/) | Пошаговые планы реализации. |
+| [reports](reports/) | Тексты отчётов Sprint 2–6 и групповые ответы 5/5, 6/5. |
 
 Внешние артефакты учебного проекта: [Figma-прототип](https://www.figma.com/design/PQ2HmEr99bpWbDCxgcnMbe/Project-Matchmaker?node-id=0-1), Use Case и ER-диаграммы хранятся также в папке команды Google Drive. Исходники диаграмм в репозитории предпочтительнее картинок: их можно рецензировать и изменять через pull request.
+
+Документация в `reports/` является доказательной базой, а не заменой
+артефактов Moodle: скриншоты Jira, фактические SP/время и ссылки на Drive
+нужно прикладывать из реальной доски и хранилища.

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="480" viewBox="0 0 1000 480" role="img" aria-label="C4 context diagram for Matchmaker">
+  <style>text{font-family:Arial,sans-serif;fill:#14213d}.title{font-size:28px;font-weight:bold}.label{font-size:18px;font-weight:bold}.body{font-size:14px}.box{fill:#e9f3ff;stroke:#2878b5;stroke-width:2}.person{fill:#fff4d6;stroke:#b57619;stroke-width:2}.external{fill:#f1f1f1;stroke:#777;stroke-width:2}.line{stroke:#555;stroke-width:2;marker-end:url(#arrow)}</style>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#555"/></marker></defs>
+  <text x="35" y="45" class="title">Matchmaker — C4: System Context</text>
+  <rect x="55" y="180" width="190" height="105" rx="8" class="person"/><text x="115" y="220" class="label">Пользователь</text><text x="82" y="248" class="body">ищет команду, профиль,</text><text x="90" y="269" class="body">проекты и сообщения</text>
+  <rect x="385" y="130" width="255" height="185" rx="8" class="box"/><text x="445" y="185" class="label">Matchmaker</text><text x="420" y="214" class="body">web / KMP / REST API / chat</text><text x="431" y="238" class="body">подбор участников и проектов</text>
+  <rect x="780" y="180" width="175" height="105" rx="8" class="external"/><text x="825" y="220" class="label">E-mail</text><text x="805" y="248" class="body">dev outbox / SMTP</text>
+  <line x1="245" y1="232" x2="385" y2="232" class="line"/><text x="270" y="215" class="body">HTTPS / JSON</text>
+  <line x1="640" y1="232" x2="780" y2="232" class="line"/><text x="658" y="215" class="body">код verify</text>
+  <text x="35" y="430" class="body">Исходник: c4-context.puml. SVG — переносимое представление для отчётов.</text>
+</svg>
