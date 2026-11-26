@@ -1,4 +1,4 @@
-"""Local setup and explicit administrative commands; never creates demo accounts."""
+"""Local setup, demo catalogue seeding, and explicit administrative commands."""
 
 import argparse
 import os
