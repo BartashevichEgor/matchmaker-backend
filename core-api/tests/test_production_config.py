@@ -183,5 +183,8 @@ def test_request_logs_are_redacted_and_unhandled_errors_keep_request_id(client):
     assert failed.headers["x-request-id"] == failed.json()["request_id"]
     assert "status=200" in "".join(logs)
     assert "status=500" in "".join(logs)
+    assert "RuntimeError" in "".join(logs)
+    assert "fail_with_secret" in "".join(logs)
     assert "query-secret" not in "".join(logs)
     assert "password=" not in "".join(logs)
+    assert "must-not-leak" not in "".join(logs)

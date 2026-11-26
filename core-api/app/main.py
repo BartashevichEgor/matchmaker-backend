@@ -1,5 +1,6 @@
 import sys
 import time
+import traceback
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -119,7 +120,15 @@ async def log_request(request: Request, call_next):
     started = time.perf_counter()
     try:
         response = await call_next(request)
-    except Exception:
+    except Exception as exc:
+        frame = traceback.extract_tb(exc.__traceback__)[-1]
+        logger.error(
+            "Unhandled request failure type={} function={} line={} request={}",
+            type(exc).__name__,
+            frame.name,
+            frame.lineno,
+            request_id,
+        )
         response = JSONResponse(
             status_code=500,
             content={"detail": "Internal server error", "request_id": request_id},
