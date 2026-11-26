@@ -48,7 +48,7 @@
 - [x] Step 2: Make production settings fail startup while local/test settings remain explicit.
 - [x] Step 3: Separate `/ping` from `/health` and report dependency status without secrets.
 - [x] Step 4: Add request IDs, duration/status logs and redaction assertions.
-- [x] Step 5: Configure Redis limits: login 5/15m per IP+normalized email, verification send 3/15m per user+IP, verification check 5/10m per user, favorites 60/min per user, swipes 120/min per user, chat sends 60 per 60-second window per user.
+- [x] Step 5: Configure Redis limits: login 30/5m per IP and 5/15m per IP+normalized email; verification send 30/5m per IP and 3/15m per email+IP/user+IP; verification check 30/5m per IP and 5/10m per email/user; favorites 60/min per user; swipes 120/min per user; chat sends 60 per 60-second window per user.
 - [x] Step 6: Return `429`, error code `rate_limited` and `Retry-After` seconds.
 - [x] Step 7: Run backend tests and Ruff.
 - [ ] Step 8: Commit `harden: validate production configuration` with the approved Phase 5 PR work.

@@ -30,12 +30,15 @@ def throttle(request: Request, action: str, email: str, user_id: int | None = No
     address = request.client.host if request.client else "unknown"
     email_key = normalized_email(email)
     if action == "login":
+        limit(f"login:ip:{address}", 30, 300)
         limit(f"login:ip-email:{address}:{email_key}", 5, 900)
     elif action in {"verify", "verify-link"}:
+        limit(f"verification-check:ip:{address}", 30, 300)
         limit(f"verification-check:email:{email_key}", 5, 600)
         if user_id is not None:
             limit(f"verification-check:user:{user_id}", 5, 600)
     elif action in {"register", "resend"}:
+        limit(f"verification-send:ip:{address}", 30, 300)
         limit(f"verification-send:email:{email_key}:ip:{address}", 3, 900)
         if user_id is not None:
             limit(f"verification-send:user:{user_id}:ip:{address}", 3, 900)

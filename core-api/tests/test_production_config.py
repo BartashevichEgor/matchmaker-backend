@@ -57,10 +57,15 @@ def test_auth_rate_limit_policies_use_normalized_email_and_user(monkeypatch):
     request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
 
     auth_module.throttle(request, "login", "  Person@Example.com ")
-    assert calls.pop() == ("login:ip-email:127.0.0.1:person@example.com", 5, 900)
+    assert calls == [
+        ("login:ip:127.0.0.1", 30, 300),
+        ("login:ip-email:127.0.0.1:person@example.com", 5, 900),
+    ]
+    calls.clear()
 
     auth_module.throttle(request, "resend", "Person@Example.com", user_id=42)
     assert calls == [
+        ("verification-send:ip:127.0.0.1", 30, 300),
         ("verification-send:email:person@example.com:ip:127.0.0.1", 3, 900),
         ("verification-send:user:42:ip:127.0.0.1", 3, 900),
     ]
@@ -68,6 +73,7 @@ def test_auth_rate_limit_policies_use_normalized_email_and_user(monkeypatch):
 
     auth_module.throttle(request, "verify", "PERSON@example.COM", user_id=42)
     assert calls == [
+        ("verification-check:ip:127.0.0.1", 30, 300),
         ("verification-check:email:person@example.com", 5, 600),
         ("verification-check:user:42", 5, 600),
     ]
@@ -86,6 +92,7 @@ def test_readiness_reports_smtp_failure_without_connection_details(client, monke
             mail_port=587,
             mail_ssl_tls=False,
             mail_starttls=True,
+            mail_use_credentials=False,
         ),
     )
     monkeypatch.setattr(health_module, "redis_client", lambda: None)
@@ -103,6 +110,55 @@ def test_readiness_reports_smtp_failure_without_connection_details(client, monke
         "mail": "DOWN",
     }
     assert "must-not-leak" not in response.text
+
+
+def test_readiness_checks_smtp_credentials_without_leaking_them(client, monkeypatch):
+    import smtplib
+
+    import app.api.health as health_module
+
+    password = "smtp-secret-for-test"
+    settings = SimpleNamespace(
+        environment="production",
+        mail_mode="smtp",
+        mail_server="smtp.example.com",
+        mail_port=587,
+        mail_ssl_tls=False,
+        mail_starttls=True,
+        mail_use_credentials=True,
+        mail_username="mailer@example.com",
+        mail_password=SimpleNamespace(get_secret_value=lambda: password),
+    )
+    monkeypatch.setattr(health_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(health_module, "redis_client", lambda: None)
+
+    class SMTP:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def ehlo(self):
+            return 250, b"ok"
+
+        def starttls(self, **_kwargs):
+            return 220, b"ready"
+
+        def login(self, username, supplied_password):
+            assert username == settings.mail_username
+            assert supplied_password == password
+            raise smtplib.SMTPAuthenticationError(535, b"invalid credentials")
+
+        def noop(self):
+            return 250, b"ok"
+
+    monkeypatch.setattr(health_module.smtplib, "SMTP", lambda *_args, **_kwargs: SMTP())
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json()["dependencies"]["mail"] == "DOWN"
+    assert password not in response.text
 
 
 def test_request_logs_are_redacted_and_unhandled_errors_keep_request_id(client):
