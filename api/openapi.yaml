@@ -302,6 +302,117 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ModerationInput' }
       responses: { '200': { description: Проект с обновлённой модерацией }, '401': { description: Нет JWT }, '403': { description: Нужна роль administrator }, '404': { description: Проект не найден } }
+  /auth/verify-email-link:
+    post:
+      summary: Подтвердить e-mail одноразовой ссылкой
+      responses: { '200': { description: E-mail подтверждён }, '400': { description: Ссылка недействительна или истекла } }
+  /auth/web/login:
+    post:
+      summary: Web login с cookie refresh-сессией
+      responses: { '200': { description: Сессия создана } }
+  /auth/web/refresh:
+    post:
+      summary: Обновить web-сессию по cookie
+      responses: { '200': { description: Access token обновлён }, '401': { description: Cookie недействителен } }
+  /auth/web/logout:
+    post:
+      summary: Завершить текущую web-сессию
+      responses: { '200': { description: Сессия завершена } }
+  /auth/web/logout-all:
+    post:
+      summary: Завершить все web-сессии
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Сессии завершены } }
+  /auth/mobile/login:
+    post:
+      summary: Mobile login с токенами в JSON
+      responses: { '200': { description: Tokens }, '401': { description: Неверные данные } }
+  /auth/mobile/refresh:
+    post:
+      summary: Обновить mobile refresh token
+      responses: { '200': { description: Tokens }, '401': { description: Token недействителен } }
+  /auth/mobile/logout:
+    post:
+      summary: Завершить mobile-сессию
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Сессия завершена } }
+  /auth/sessions:
+    get:
+      summary: Список собственных сессий
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Сессии текущего пользователя } }
+  /auth/sessions/{session_id}:
+    delete:
+      summary: Отозвать собственную сессию
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: session_id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Сессия отозвана }, '404': { description: Сессия не найдена } }
+  /profiles:
+    get:
+      summary: Каталог опубликованных профилей
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Страница профилей } }
+  /projects/mine:
+    get:
+      summary: Проект текущего владельца
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Собственный проект }, '404': { description: Проект не создан } }
+  /onboarding:
+    get:
+      summary: Состояние onboarding текущего пользователя
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Состояние onboarding } }
+    put:
+      summary: Сохранить onboarding
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Обновлённое состояние onboarding } }
+  /favorites:
+    get:
+      summary: Список собственных сохранённых карточек
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Избранное } }
+  /favorites/{kind}/{target_id}:
+    put:
+      summary: Сохранить профиль или проект
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [profile, project] } }
+        - { name: target_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses: { '200': { description: Карточка сохранена } }
+    delete:
+      summary: Удалить карточку из избранного
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [profile, project] } }
+        - { name: target_id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses: { '204': { description: Карточка удалена } }
+  /matches/{match_id}:
+    get:
+      summary: Детали match, доступные только участникам
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: match_id, in: path, required: true, schema: { type: integer, minimum: 1 } }]
+      responses: { '200': { description: Match }, '403': { description: Нет доступа }, '404': { description: Match не найден } }
+  /notifications:
+    get:
+      summary: Собственные уведомления
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Уведомления текущего пользователя } }
+  /notifications/unread-count:
+    get:
+      summary: Число непрочитанных уведомлений
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Unread count } }
+  /notifications/{notification_id}/read:
+    patch:
+      summary: Отметить своё уведомление прочитанным
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: notification_id, in: path, required: true, schema: { type: integer, minimum: 1 } }]
+      responses: { '200': { description: Уведомление обновлено }, '404': { description: Уведомление не найдено } }
+  /notifications/read-all:
+    post:
+      summary: Отметить все свои уведомления прочитанными
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Уведомления обновлены } }
 components:
   parameters:
     ProjectId:

@@ -49,33 +49,35 @@ def seed():
         # A local demo catalogue makes the first launch useful. Test databases
         # intentionally stay deterministic and contain only fixture data.
         if get_settings().environment != "test":
-            owner = db.scalar(select(User).where(User.email == "demo@matchmaker.local"))
-            if not owner:
-                owner = User(
-                    username="matchmaker-demo",
-                    email="demo@matchmaker.local",
-                    hashed_password="disabled-demo-account",
-                    is_active=True,
-                    is_verified=True,
-                )
-                db.add(owner)
-                db.flush()
-            if not db.scalar(select(Project.id).where(Project.owner_id == owner.id)):
-                db.add_all(
-                    [
-                        Project(
-                            owner_id=owner.id,
-                            title="Команда для учебного хакатона",
-                            description="Ищем frontend-разработчика и дизайнера для MVP сервиса подбора команд.",
-                        ),
-                        Project(
-                            owner_id=owner.id,
-                            title="Пет-проект Matchmaker",
-                            description="Развиваем сервис поиска участников: FastAPI, React, PostgreSQL и UX-исследование.",
-                        ),
-                    ]
-                )
-                db.commit()
+            demo_projects = (
+                (
+                    "matchmaker-demo",
+                    "demo@matchmaker.local",
+                    "Команда для учебного хакатона",
+                    "Ищем frontend-разработчика и дизайнера для MVP сервиса подбора команд.",
+                ),
+                (
+                    "matchmaker-catalog",
+                    "catalog@matchmaker.local",
+                    "Пет-проект Matchmaker",
+                    "Развиваем сервис поиска участников: FastAPI, React, PostgreSQL и UX-исследование.",
+                ),
+            )
+            for username, email, title, description in demo_projects:
+                owner = db.scalar(select(User).where(User.email == email))
+                if not owner:
+                    owner = User(
+                        username=username,
+                        email=email,
+                        hashed_password="disabled-demo-account",
+                        is_active=True,
+                        is_verified=True,
+                    )
+                    db.add(owner)
+                    db.flush()
+                if not db.scalar(select(Project.id).where(Project.owner_id == owner.id)):
+                    db.add(Project(owner_id=owner.id, title=title, description=description))
+            db.commit()
     print("Skills and roles are ready.")
 
 
